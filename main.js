@@ -8,12 +8,12 @@
 // FIREBASE CONFIGURATION (UPDATE WITH YOUR PROJECT CREDENTIALS)
 // ============================================================================
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+  authDomain: "shadow-app-4q69.firebaseapp.com",
+  projectId: "shadow-app-4q69",
+  storageBucket: "shadow-app-4q69.firebasestorage.app",
+  messagingSenderId: "109693889633",
+  appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
 };
 
 // ============================================================================
